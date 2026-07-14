@@ -96,6 +96,9 @@ export function AgentManagerPanel({
     staged: false,
     untracked: false
   })
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [selectedCommitHash, setSelectedCommitHash] = useState<string | null>(null)
+  const [selectedCommitFile, setSelectedCommitFile] = useState<{ commitHash: string; file: string } | null>(null)
 
   // Timeline state
   const timelineEvents = useTimelineStore(
@@ -176,6 +179,9 @@ export function AgentManagerPanel({
 
   // File diff handler
   const handleViewDiff = async (filePath: string) => {
+    setSelectedFilePath(filePath)
+    setSelectedCommitHash(null)
+    setSelectedCommitFile(null)
     if (!workspaceRootPath) return
     try {
       const diff = await window.api.git.diff(workspaceRootPath, filePath)
@@ -187,6 +193,9 @@ export function AgentManagerPanel({
   }
 
   const handleViewCommitFileDiff = async (commitHash: string, filePath: string) => {
+    setSelectedFilePath(null)
+    setSelectedCommitHash(commitHash)
+    setSelectedCommitFile({ commitHash, file: filePath })
     if (!workspaceRootPath) return
     try {
       const diff = await window.api.git.commitDiff(workspaceRootPath, commitHash, filePath)
@@ -198,6 +207,9 @@ export function AgentManagerPanel({
   }
 
   const toggleCommit = async (hash: string) => {
+    setSelectedFilePath(null)
+    setSelectedCommitHash(hash)
+    setSelectedCommitFile(null)
     const isExpanded = expandedCommits[hash]
     setExpandedCommits((prev) => ({ ...prev, [hash]: !isExpanded }))
 
@@ -586,16 +598,23 @@ export function AgentManagerPanel({
                     </div>
                     {!gitCollapsed.unstaged && (
                       <div className="space-y-1">
-                        {gitStatus.modified.map((file) => (
-                          <div
-                            key={file}
-                            className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                            onClick={() => handleViewDiff(file)}
-                          >
-                            <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
-                            <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </div>
-                        ))}
+                        {gitStatus.modified.map((file) => {
+                          const isSelected = selectedFilePath === file && !selectedCommitHash
+                          return (
+                            <div
+                              key={file}
+                              className={`group flex items-center justify-between text-xs rounded border px-2 py-1.5 hover:bg-secondary/15 cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 border-l-2 border-l-primary shadow-sm shadow-primary/5'
+                                  : 'border-border bg-secondary/5 hover:border-primary/20'
+                              }`}
+                              onClick={() => handleViewDiff(file)}
+                            >
+                              <span className={`truncate pr-2 font-mono text-[11px] ${isSelected ? 'text-primary font-medium' : 'text-foreground'}`}>{file}</span>
+                              <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -616,16 +635,23 @@ export function AgentManagerPanel({
                     </div>
                     {!gitCollapsed.staged && (
                       <div className="space-y-1">
-                        {gitStatus.staged.map((file) => (
-                          <div
-                            key={file}
-                            className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                            onClick={() => handleViewDiff(file)}
-                          >
-                            <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
-                            <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </div>
-                        ))}
+                        {gitStatus.staged.map((file) => {
+                          const isSelected = selectedFilePath === file && !selectedCommitHash
+                          return (
+                            <div
+                              key={file}
+                              className={`group flex items-center justify-between text-xs rounded border px-2 py-1.5 hover:bg-secondary/15 cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 border-l-2 border-l-primary shadow-sm shadow-primary/5'
+                                  : 'border-border bg-secondary/5 hover:border-primary/20'
+                              }`}
+                              onClick={() => handleViewDiff(file)}
+                            >
+                              <span className={`truncate pr-2 font-mono text-[11px] ${isSelected ? 'text-primary font-medium' : 'text-foreground'}`}>{file}</span>
+                              <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -646,16 +672,23 @@ export function AgentManagerPanel({
                     </div>
                     {!gitCollapsed.untracked && (
                       <div className="space-y-1">
-                        {gitStatus.untracked.map((file) => (
-                          <div
-                            key={file}
-                            className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                            onClick={() => handleViewDiff(file)}
-                          >
-                            <span className="truncate pr-2 font-mono text-[11px] text-muted-foreground">{file}</span>
-                            <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                          </div>
-                        ))}
+                        {gitStatus.untracked.map((file) => {
+                          const isSelected = selectedFilePath === file && !selectedCommitHash
+                          return (
+                            <div
+                              key={file}
+                              className={`group flex items-center justify-between text-xs rounded border px-2 py-1.5 hover:bg-secondary/15 cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 border-l-2 border-l-primary shadow-sm shadow-primary/5'
+                                  : 'border-border bg-secondary/5 hover:border-primary/20'
+                              }`}
+                              onClick={() => handleViewDiff(file)}
+                            >
+                              <span className={`truncate pr-2 font-mono text-[11px] ${isSelected ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{file}</span>
+                              <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>
@@ -682,11 +715,14 @@ export function AgentManagerPanel({
                   {gitLogs.map((log) => {
                     const isExpanded = expandedCommits[log.hash] ?? false
                     const fileData = commitFiles[log.hash]
+                    const isCommitSelected = selectedCommitHash === log.hash && !selectedCommitFile
                     return (
                       <div key={log.hash}>
                         {/* Commit header row — click to expand */}
                         <div
-                          className="flex items-start gap-2 p-2 cursor-pointer hover:bg-secondary/10 transition-colors select-none"
+                          className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-secondary/10 transition-colors select-none ${
+                            isCommitSelected ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                          }`}
                           onClick={() => toggleCommit(log.hash)}
                         >
                           <span className="mt-0.5 shrink-0 text-muted-foreground">
@@ -720,16 +756,23 @@ export function AgentManagerPanel({
                               <div className="py-2 px-4 text-[10px] text-muted-foreground">No files found.</div>
                             ) : (
                               <div className="divide-y divide-border/20">
-                                {fileData.files.map((file) => (
-                                  <div
-                                    key={file}
-                                    className="group flex items-center justify-between px-4 py-1.5 hover:bg-secondary/10 cursor-pointer transition-colors"
-                                    onClick={() => handleViewCommitFileDiff(log.hash, file)}
-                                  >
-                                    <span className="font-mono text-[10px] text-foreground truncate pr-2">{file}</span>
-                                    <Eye size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                  </div>
-                                ))}
+                                {fileData.files.map((file) => {
+                                  const isFileSelected = selectedCommitFile?.commitHash === log.hash && selectedCommitFile?.file === file
+                                  return (
+                                    <div
+                                      key={file}
+                                      className={`group flex items-center justify-between px-4 py-1.5 cursor-pointer transition-colors ${
+                                        isFileSelected
+                                          ? 'bg-primary/10 border-l-2 border-l-primary text-primary font-semibold'
+                                          : 'hover:bg-secondary/10 hover:text-foreground'
+                                      }`}
+                                      onClick={() => handleViewCommitFileDiff(log.hash, file)}
+                                    >
+                                      <span className="font-mono text-[10px] truncate pr-2">{file}</span>
+                                      <Eye size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                    </div>
+                                  )
+                                })}
                               </div>
                             )}
                           </div>

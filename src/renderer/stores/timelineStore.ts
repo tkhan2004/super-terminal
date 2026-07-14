@@ -16,11 +16,14 @@ interface TimelineState {
   addEvent: (sessionId: string, event: Omit<TimelineEvent, 'id' | 'sessionId' | 'timestamp'>) => void
   clearEvents: (sessionId: string) => void
   processStreamData: (sessionId: string, data: string) => void
+  setWorkspaceEvents: (events: Record<string, TimelineEvent[]>) => void
 }
 
 export const useTimelineStore = create<TimelineState>((set, get) => ({
   events: {},
   sessionBuffers: {},
+
+  setWorkspaceEvents: (events) => set({ events }),
 
   addEvent: (sessionId, eventData) => {
     const newEvent: TimelineEvent = {
@@ -42,10 +45,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
         return state
       }
 
+      const nextEvents = [...currentEvents, newEvent]
+      if (nextEvents.length > 500) {
+        nextEvents.shift()
+      }
+
       return {
         events: {
           ...state.events,
-          [sessionId]: [...currentEvents, newEvent]
+          [sessionId]: nextEvents
         }
       }
     })

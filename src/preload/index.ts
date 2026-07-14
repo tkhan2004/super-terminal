@@ -39,8 +39,9 @@ const api = {
       sessions: import('@shared/types/session').Session[],
       layout: import('@shared/types/workspace').WorkspaceLayout,
       tasks?: import('@shared/types/task').Task[],
-      pinnedFiles?: string[]
-    ) => invoke('workspace:saveState', workspace, sessions, layout, tasks, pinnedFiles),
+      pinnedFiles?: string[],
+      timeline?: Record<string, import('@shared/types/session').TimelineEvent[]>
+    ) => invoke('workspace:saveState', workspace, sessions, layout, tasks, pinnedFiles, timeline),
     restore: (id: string) => invoke('workspace:restore', id)
   },
 

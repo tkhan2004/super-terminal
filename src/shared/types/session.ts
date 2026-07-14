@@ -2,6 +2,16 @@ export type AgentType = 'shell' | 'claude' | 'codex' | 'gemini' | 'opencode' | '
 
 export type SessionStatus = 'running' | 'exited' | 'resumable'
 
+export interface TimelineEvent {
+  id: string
+  sessionId: string
+  type: 'prompt' | 'command' | 'git_commit' | 'test_runner' | 'shell_prompt' | 'generic'
+  title: string
+  timestamp: number
+  description?: string
+  status?: 'success' | 'failure' | 'pending' | 'info'
+}
+
 export interface Session {
   id: string
   workspaceId: string

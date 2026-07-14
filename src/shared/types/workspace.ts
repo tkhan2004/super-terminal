@@ -26,4 +26,5 @@ export interface WorkspaceState {
   layout: WorkspaceLayout
   tasks?: Task[]
   pinnedFiles?: string[]
+  timeline?: Record<string, import('./session').TimelineEvent[]>
 }

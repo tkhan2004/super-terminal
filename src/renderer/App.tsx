@@ -270,12 +270,14 @@ export default function App() {
       tabLayouts
     }
 
+    const timeline = useTimelineStore.getState().events
     await window.api.workspace.saveState(
       workspace,
       tabs.map((t) => t.session),
       layout,
       tasks,
-      pinnedFiles
+      pinnedFiles,
+      timeline
     )
   }, [workspace, tabs, activeTabId, layoutTree, tasks, pinnedFiles, tabLayouts])
 
@@ -294,6 +296,7 @@ export default function App() {
         setTasks(state.tasks ?? [])
         setPinnedFiles(state.pinnedFiles ?? [])
         setTabLayouts(state.layout.tabLayouts ?? {})
+        useTimelineStore.getState().setWorkspaceEvents(state.timeline ?? {})
       } else {
         setWorkspace(ws)
         setTabs([])
@@ -302,6 +305,7 @@ export default function App() {
         setTasks([])
         setPinnedFiles([])
         setTabLayouts({})
+        useTimelineStore.getState().setWorkspaceEvents({})
       }
 
       setOpenWorkspaces((prev) => {
