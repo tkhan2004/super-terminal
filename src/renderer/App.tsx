@@ -99,6 +99,7 @@ export default function App() {
   } = useTaskStore()
   const [pinnedFiles, setPinnedFiles] = useState<string[]>([])
   const [sessionReferences, setSessionReferences] = useState<Record<string, string[]>>({})
+  const spawningRef = useRef(false)
 
   const handlePinFile = useCallback((path: string) => {
     setPinnedFiles((prev) => {
@@ -316,6 +317,7 @@ export default function App() {
     setTasks([])
     setPinnedFiles([])
     setSessionReferences({})
+    spawningRef.current = false
     loadWorkspacesList()
   }, [workspace, tabs, saveState, loadWorkspacesList, setTasks])
 
@@ -446,8 +448,11 @@ export default function App() {
   }, [workspace, loadWorkspacesList])
 
   useEffect(() => {
-    if (workspace && tabs.length === 0 && !showNewTabDialog) {
-      createTab('shell', 'shell')
+    if (workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
+      spawningRef.current = true
+      createTab('shell', 'shell').finally(() => {
+        spawningRef.current = false
+      })
     }
   }, [workspace, tabs.length, createTab, showNewTabDialog])
 
