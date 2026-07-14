@@ -38,6 +38,34 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
     terminal.loadAddon(webLinksAddon)
     terminal.open(containerRef.current)
 
+    // Intercept keyboard shortcuts for copy/paste
+    terminal.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true
+
+      const isCtrl = e.ctrlKey || e.metaKey
+      const isShift = e.shiftKey
+      const key = e.key.toLowerCase()
+
+      // Copy: Ctrl+C (when selection exists) or Ctrl+Shift+C
+      if ((isCtrl && key === 'c' && terminal.hasSelection()) || (isCtrl && isShift && key === 'c')) {
+        const selection = terminal.getSelection()
+        if (selection) {
+          navigator.clipboard.writeText(selection)
+        }
+        return false
+      }
+
+      // Paste: Ctrl+V or Ctrl+Shift+V
+      if ((isCtrl && key === 'v') || (isCtrl && isShift && key === 'v')) {
+        navigator.clipboard.readText().then((text) => {
+          terminal.paste(text)
+        })
+        return false
+      }
+
+      return true
+    })
+
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
 

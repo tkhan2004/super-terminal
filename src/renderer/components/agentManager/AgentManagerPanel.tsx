@@ -91,6 +91,11 @@ export function AgentManagerPanel({
   const [diffContent, setDiffContent] = useState<string>('')
   const [expandedCommits, setExpandedCommits] = useState<Record<string, boolean>>({})
   const [commitFiles, setCommitFiles] = useState<Record<string, { files: string[]; stats: string }>>({})
+  const [gitCollapsed, setGitCollapsed] = useState<Record<'unstaged' | 'staged' | 'untracked', boolean>>({
+    unstaged: false,
+    staged: false,
+    untracked: false
+  })
 
   // Timeline state
   const timelineEvents = useTimelineStore(
@@ -569,66 +574,90 @@ export function AgentManagerPanel({
                 {/* Unstaged files */}
                 {gitStatus.modified.length > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-amber-500 uppercase px-1">
-                      <span>Unstaged Changes ({gitStatus.modified.length})</span>
+                    <div
+                      className="flex items-center justify-between text-[10px] font-semibold text-amber-500 uppercase px-1 cursor-pointer select-none hover:text-amber-400"
+                      onClick={() => setGitCollapsed((prev) => ({ ...prev, unstaged: !prev.unstaged }))}
+                    >
+                      <div className="flex items-center gap-1">
+                        {gitCollapsed.unstaged ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                        <span>Unstaged Changes ({gitStatus.modified.length})</span>
+                      </div>
                       <AlertTriangle size={10} />
                     </div>
-                    <div className="space-y-1">
-                      {gitStatus.modified.map((file) => (
-                        <div
-                          key={file}
-                          className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleViewDiff(file)}
-                        >
-                          <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
-                          <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                    {!gitCollapsed.unstaged && (
+                      <div className="space-y-1">
+                        {gitStatus.modified.map((file) => (
+                          <div
+                            key={file}
+                            className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
+                            onClick={() => handleViewDiff(file)}
+                          >
+                            <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
+                            <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Staged files */}
                 {gitStatus.staged.length > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-green-400 uppercase px-1">
-                      <span>Staged Changes ({gitStatus.staged.length})</span>
+                    <div
+                      className="flex items-center justify-between text-[10px] font-semibold text-green-400 uppercase px-1 cursor-pointer select-none hover:text-green-300"
+                      onClick={() => setGitCollapsed((prev) => ({ ...prev, staged: !prev.staged }))}
+                    >
+                      <div className="flex items-center gap-1">
+                        {gitCollapsed.staged ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                        <span>Staged Changes ({gitStatus.staged.length})</span>
+                      </div>
                       <CheckCircle size={10} />
                     </div>
-                    <div className="space-y-1">
-                      {gitStatus.staged.map((file) => (
-                        <div
-                          key={file}
-                          className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleViewDiff(file)}
-                        >
-                          <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
-                          <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                    {!gitCollapsed.staged && (
+                      <div className="space-y-1">
+                        {gitStatus.staged.map((file) => (
+                          <div
+                            key={file}
+                            className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
+                            onClick={() => handleViewDiff(file)}
+                          >
+                            <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
+                            <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Untracked files */}
                 {gitStatus.untracked.length > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase px-1">
-                      <span>Untracked Files ({gitStatus.untracked.length})</span>
+                    <div
+                      className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase px-1 cursor-pointer select-none hover:text-foreground"
+                      onClick={() => setGitCollapsed((prev) => ({ ...prev, untracked: !prev.untracked }))}
+                    >
+                      <div className="flex items-center gap-1">
+                        {gitCollapsed.untracked ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                        <span>Untracked Files ({gitStatus.untracked.length})</span>
+                      </div>
                       <FileCode size={10} />
                     </div>
-                    <div className="space-y-1">
-                      {gitStatus.untracked.map((file) => (
-                        <div
-                          key={file}
-                          className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleViewDiff(file)}
-                        >
-                          <span className="truncate pr-2 font-mono text-[11px] text-muted-foreground">{file}</span>
-                          <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                    {!gitCollapsed.untracked && (
+                      <div className="space-y-1">
+                        {gitStatus.untracked.map((file) => (
+                          <div
+                            key={file}
+                            className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
+                            onClick={() => handleViewDiff(file)}
+                          >
+                            <span className="truncate pr-2 font-mono text-[11px] text-muted-foreground">{file}</span>
+                            <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

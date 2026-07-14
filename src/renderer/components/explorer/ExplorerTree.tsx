@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { DirEntry } from '@shared/types/ipc'
-import { ChevronRight, ChevronDown, File, Folder, Pin } from 'lucide-react'
+import { ChevronRight, ChevronDown, File, Folder, Pin, Eye, EyeOff } from 'lucide-react'
 
 interface ExplorerTreeProps {
   rootPath: string
@@ -25,6 +25,16 @@ export function ExplorerTree({
   onUnpinFile
 }: ExplorerTreeProps) {
   const [tree, setTree] = useState<TreeNode[]>([])
+  const [showHidden, setShowHidden] = useState(true)
+
+  const filterEntries = useCallback((nodes: TreeNode[]): TreeNode[] => {
+    return nodes.filter(
+      (node) =>
+        showHidden ||
+        !node.entry.name.startsWith('.') ||
+        node.entry.name === '.gitignore'
+    )
+  }, [showHidden])
   const [watchId, setWatchId] = useState<string | null>(null)
   const dragRef = useRef<string | null>(null)
   const watchIdRef = useRef<string | null>(null)
@@ -219,7 +229,7 @@ export function ExplorerTree({
           )}
         </div>
         {node.expanded && node.children && (
-          <div>{node.children.map((child) => renderNode(child, depth + 1))}</div>
+          <div>{filterEntries(node.children).map((child) => renderNode(child, depth + 1))}</div>
         )}
       </div>
     )
@@ -227,16 +237,23 @@ export function ExplorerTree({
 
   return (
     <div className="flex h-full flex-col bg-card">
-      <div className="flex h-10 items-center border-b border-border px-3">
+      <div className="flex h-10 items-center justify-between border-b border-border px-3">
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Explorer
         </span>
+        <button
+          className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          onClick={() => setShowHidden(!showHidden)}
+          title={showHidden ? "Hide Hidden Files" : "Show Hidden Files"}
+        >
+          {showHidden ? <EyeOff size={13} /> : <Eye size={13} />}
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {tree.length === 0 ? (
           <div className="p-3 text-xs text-muted-foreground">Loading...</div>
         ) : (
-          tree.map((node) => renderNode(node, 0))
+          filterEntries(tree).map((node) => renderNode(node, 0))
         )}
       </div>
     </div>

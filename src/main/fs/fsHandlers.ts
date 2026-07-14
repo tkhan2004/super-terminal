@@ -24,7 +24,7 @@ async function handleReadDir(_event: unknown, dirPath: string): Promise<DirEntry
   try {
     const entries = readdirSync(dirPath)
     return entries
-      .filter((name) => !name.startsWith('.'))
+      .filter((name) => name !== '.git')
       .map((name) => {
         const fullPath = join(dirPath, name)
         const stat = statSync(fullPath)
@@ -80,7 +80,7 @@ function getFilesRecursive(dir: string, baseDir: string, filesList: string[] = [
   try {
     const entries = readdirSync(dir)
     for (const entry of entries) {
-      if (entry.startsWith('.') && entry !== '.gitignore') continue
+      // Dotfiles like .claude, .env are allowed now. .git is explicitly ignored below.
       if (
         entry === 'node_modules' ||
         entry === 'dist' ||
