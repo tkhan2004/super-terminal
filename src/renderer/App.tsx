@@ -3,6 +3,7 @@ import type { Workspace } from '@shared/types/workspace'
 import { WorkspacePane } from './components/layout/WorkspacePane'
 import { useSettingsStore } from './stores/settingsStore'
 import { X, Plus, Sun, Moon, Monitor } from 'lucide-react'
+import { QuotaFooter } from './components/layout/QuotaFooter'
 
 export default function App() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
@@ -234,6 +235,7 @@ export default function App() {
           })
         )}
       </div>
+      <QuotaFooter />
     </div>
   )
 }
