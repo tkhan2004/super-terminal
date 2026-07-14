@@ -5,12 +5,10 @@ import { Shield, Key, Database, RefreshCw, CheckCircle2, AlertTriangle, X } from
 export function QuotaFooter() {
   const { quotas, updateQuota } = useSettingsStore()
   const [activeCli, setActiveCli] = useState<string | null>(null)
-  
-  // Modal form states
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  // Modal form states (used/limit override only — login state is auto-detected, not editable)
   const [used, setUsed] = useState(0)
   const [limit, setLimit] = useState(0)
-  const [apiKey, setApiKey] = useState('')
 
   const [loadingQuota, setLoadingQuota] = useState(false)
 
@@ -70,6 +68,21 @@ export function QuotaFooter() {
   }, [updateQuota])
 
   useEffect(() => {
+    const scanOtherLogins = async () => {
+      try {
+        const detected = await window.api.quota.scanLogins()
+        updateQuota('codex', { isLoggedIn: detected.codex })
+        updateQuota('antigravity', { isLoggedIn: detected.antigravity })
+        updateQuota('commandcodeai', { isLoggedIn: detected.commandcodeai })
+        updateQuota('opencode', { isLoggedIn: detected.opencode })
+      } catch (err) {
+        console.error('Failed to scan local CLI logins:', err)
+      }
+    }
+    scanOtherLogins()
+  }, [updateQuota])
+
+  useEffect(() => {
     if (quotas.claude.isLoggedIn) {
       const timer = setInterval(() => {
         fetchClaudeQuota()
@@ -81,19 +94,15 @@ export function QuotaFooter() {
 
   const openSettings = (key: string, quota: CliQuota) => {
     setActiveCli(key)
-    setIsLoggedIn(quota.isLoggedIn)
     setUsed(quota.used)
     setLimit(quota.limit)
-    setApiKey(quota.apiKey)
   }
 
   const handleSave = () => {
     if (activeCli) {
       updateQuota(activeCli, {
-        isLoggedIn,
         used: Number(used),
-        limit: Number(limit),
-        apiKey
+        limit: Number(limit)
       })
       setActiveCli(null)
     }
@@ -128,7 +137,7 @@ export function QuotaFooter() {
                     key={key}
                     onClick={() => openSettings(key, quota)}
                     className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
-                    title="Configure Claude CLI Credentials"
+                    title="Configure Claude Credentials"
                   >
                     <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
                     <span className="text-muted-foreground/60 italic flex items-center gap-1">
@@ -141,7 +150,6 @@ export function QuotaFooter() {
 
               const hasRealQuota = quota.sessionUsed !== undefined
               const sessionRemaining = hasRealQuota ? (100 - (quota.sessionUsed ?? 0)) : 100
-              const weekRemaining = hasRealQuota ? (100 - (quota.weekUsed ?? 0)) : 100
 
               let sessionBarColor = 'bg-emerald-500'
               let sessionTextColor = 'text-emerald-500 font-semibold'
@@ -155,49 +163,27 @@ export function QuotaFooter() {
                 }
               }
 
-              let weekBarColor = 'bg-emerald-500'
-              let weekTextColor = 'text-emerald-500 font-semibold'
-              if (quota.weekUsed !== undefined) {
-                if (quota.weekUsed >= 80) {
-                  weekBarColor = 'bg-rose-500'
-                  weekTextColor = 'text-rose-500 font-semibold'
-                } else if (quota.weekUsed >= 50) {
-                  weekBarColor = 'bg-amber-500'
-                  weekTextColor = 'text-amber-500 font-semibold'
-                }
-              }
-
               return (
-                <div 
+                <div
                   key={key}
-                  onClick={fetchClaudeQuota}
+                  onClick={() => openSettings(key, quota)}
                   className={`flex items-center gap-3 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group ${loadingQuota ? 'opacity-65' : ''}`}
-                  title="Claude CLI Subscription Quota (Click to refresh)"
+                  title="Claude Subscription Quota (click for full details)"
                 >
                   <span className="font-semibold text-foreground flex items-center gap-1">
                     {quota.name}
                     {loadingQuota && <RefreshCw size={10} className="animate-spin" />}
                   </span>
-                  
+
                   {hasRealQuota ? (
-                    <>
-                      <div className="flex items-center gap-2 border-r border-border/40 pr-2">
-                        <span className="text-[10px] text-muted-foreground/80">5h:</span>
-                        <div className="w-10 h-1 bg-secondary rounded-full overflow-hidden">
-                          <div className={`h-full ${sessionBarColor}`} style={{ width: `${sessionRemaining}%` }} />
-                        </div>
-                        <span className={sessionTextColor}>{quota.sessionUsed}%</span>
-                        <span className="text-[9px] text-muted-foreground/50">({quota.sessionReset})</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground/80">5h:</span>
+                      <div className="w-10 h-1 bg-secondary rounded-full overflow-hidden">
+                        <div className={`h-full ${sessionBarColor}`} style={{ width: `${sessionRemaining}%` }} />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground/80">Week:</span>
-                        <div className="w-10 h-1 bg-secondary rounded-full overflow-hidden">
-                          <div className={`h-full ${weekBarColor}`} style={{ width: `${weekRemaining}%` }} />
-                        </div>
-                        <span className={weekTextColor}>{quota.weekUsed}%</span>
-                        <span className="text-[9px] text-muted-foreground/50">({quota.weekReset})</span>
-                      </div>
-                    </>
+                      <span className={sessionTextColor}>{quota.sessionUsed}%</span>
+                      <span className="text-[9px] text-muted-foreground/50">({quota.sessionReset})</span>
+                    </div>
                   ) : (
                     <span className="text-muted-foreground/50 italic">Loading usage...</span>
                   )}
@@ -364,57 +350,31 @@ export function QuotaFooter() {
               </div>
             ) : (
               <div className="space-y-4 text-xs">
-                {/* Login Status */}
-                <div className="flex items-center justify-between">
+                {/* Login Status — auto-detected from local CLI credentials, not user-entered */}
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
                   <span className="font-medium text-foreground">Login Status:</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      checked={isLoggedIn} 
-                      onChange={(e) => {
-                        setIsLoggedIn(e.target.checked)
-                        if (!e.target.checked) {
-                          setUsed(0)
-                        } else {
-                          setUsed(quotas[activeCli].used)
-                        }
-                      }} 
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-muted-foreground after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-checked:after:bg-primary-foreground"></div>
-                    <span className="ml-2 text-xs">
-                      {isLoggedIn ? 'Signed In' : 'Signed Out'}
+                  {quotas[activeCli].isLoggedIn ? (
+                    <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Detected — signed in
                     </span>
-                  </label>
+                  ) : (
+                    <span className="text-muted-foreground/70 font-medium flex items-center gap-1">
+                      Not detected on this machine
+                    </span>
+                  )}
                 </div>
 
-                {/* API Key */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between">
-                    <span className="font-medium text-foreground">API Key / Token:</span>
-                    {isLoggedIn && apiKey && (
-                      <span className="text-[10px] text-emerald-500 flex items-center gap-0.5">
-                        <CheckCircle2 size={10} /> Active
-                      </span>
-                    )}
-                  </div>
-                  <input 
-                    type="password" 
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder={isLoggedIn ? "Enter API Key" : "Not signed in"}
-                    disabled={!isLoggedIn}
-                    className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
-                  />
+                <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
+                  Detected automatically from this CLI&apos;s local credentials — nothing to paste here. Sign in from that CLI&apos;s own terminal session and this will update on next scan.
                 </div>
 
-                {/* Usage Stats (Only if logged in) */}
-                {isLoggedIn && (
+                {/* Usage Stats (manual override — no public usage API for this CLI yet) */}
+                {quotas[activeCli].isLoggedIn && (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <span className="font-medium text-foreground">Used ({quotas[activeCli].unit}):</span>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={used}
                         onChange={(e) => setUsed(Number(e.target.value))}
                         className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
@@ -422,8 +382,8 @@ export function QuotaFooter() {
                     </div>
                     <div className="space-y-1.5">
                       <span className="font-medium text-foreground">Limit ({quotas[activeCli].unit}):</span>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         value={limit}
                         onChange={(e) => setLimit(Number(e.target.value))}
                         className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
@@ -433,7 +393,7 @@ export function QuotaFooter() {
                 )}
 
                 {/* Warnings / Tips */}
-                {isLoggedIn && used >= limit && (
+                {quotas[activeCli].isLoggedIn && used >= limit && limit > 0 && (
                   <div className="flex items-start gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-[10px] text-rose-500">
                     <AlertTriangle size={14} className="shrink-0 mt-0.5" />
                     <span>Quota completely exhausted! Please upgrade or increase the limit.</span>
@@ -442,17 +402,19 @@ export function QuotaFooter() {
 
                 {/* Actions */}
                 <div className="flex gap-2 mt-5 pt-3 border-t border-border">
-                  <button 
-                    onClick={handleSave}
-                    className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors"
-                  >
-                    Save Configuration
-                  </button>
-                  <button 
+                  {quotas[activeCli].isLoggedIn && (
+                    <button
+                      onClick={handleSave}
+                      className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors"
+                    >
+                      Save Usage Override
+                    </button>
+                  )}
+                  <button
                     onClick={() => setActiveCli(null)}
                     className="flex-1 rounded bg-secondary py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
                   >
-                    Cancel
+                    Close
                   </button>
                 </div>
               </div>

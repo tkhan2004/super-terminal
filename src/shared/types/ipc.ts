@@ -40,6 +40,16 @@ export interface IpcChannels {
       error?: string
     }
   }
+  'quota:scanLogins': {
+    args: []
+    result: {
+      claude: boolean
+      codex: boolean
+      antigravity: boolean
+      commandcodeai: boolean
+      opencode: boolean
+    }
+  }
 }
 
 export interface DirEntry {

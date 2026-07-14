@@ -48,6 +48,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:commitDiff', handleGitCommitDiff)
   ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
   ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
+  ipcMain.handle('quota:scanLogins', handleQuotaScanLogins)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -442,4 +443,60 @@ async function handleClaudeGetQuota(): Promise<{
     child.stdin?.write('/usage\n')
     child.stdin?.end()
   })
+}
+
+function isNonEmptyCredentialFile(path: string): boolean {
+  try {
+    if (!existsSync(path)) return false
+    const raw = readFileSync(path, 'utf8').trim()
+    if (!raw) return false
+    JSON.parse(raw)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Antigravity stores its OAuth token in the OS keyring (Windows Credential
+// Manager), not a plain file, so we can't detect login the same way as the
+// others. `cmdkey /list` reads the real credential store without exposing
+// secrets — best signal available without a native keyring dependency.
+function checkWindowsCredentialManager(needle: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    exec('cmdkey /list', (error, stdout) => {
+      if (error) {
+        resolve(false)
+        return
+      }
+      resolve(stdout.toLowerCase().includes(needle.toLowerCase()))
+    })
+  })
+}
+
+async function handleQuotaScanLogins(): Promise<{
+  claude: boolean
+  codex: boolean
+  antigravity: boolean
+  commandcodeai: boolean
+  opencode: boolean
+}> {
+  const claude = (await handleClaudeGetCredentials()).isLoggedIn
+
+  const codex = isNonEmptyCredentialFile(
+    join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'auth.json')
+  )
+
+  const opencode =
+    isNonEmptyCredentialFile(join(homedir(), '.local', 'share', 'opencode', 'auth.json')) ||
+    (process.env.LOCALAPPDATA
+      ? isNonEmptyCredentialFile(join(process.env.LOCALAPPDATA, 'opencode', 'auth.json'))
+      : false)
+
+  const commandcodeai =
+    !!process.env.COMMAND_CODE_API_KEY ||
+    isNonEmptyCredentialFile(join(homedir(), '.commandcode', 'auth.json'))
+
+  const antigravity = await checkWindowsCredentialManager('antigravity')
+
+  return { claude, codex, antigravity, commandcodeai, opencode }
 }
