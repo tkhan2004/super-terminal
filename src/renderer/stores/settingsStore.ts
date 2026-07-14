@@ -25,26 +25,42 @@ interface SettingsState {
 
 const defaultQuotas: Record<string, CliQuota> = {
   claude: {
-    name: 'Claude CLI',
+    name: 'Claude',
     isLoggedIn: true,
-    used: 15420,
-    limit: 100000,
-    unit: 'Tokens',
-    apiKey: 'sk-ant-************'
-  },
-  gemini: {
-    name: 'Gemini CLI',
-    isLoggedIn: true,
-    used: 421000,
-    limit: 5000000,
-    unit: 'Chars',
-    apiKey: 'AIzaSy************'
+    used: 0,
+    limit: 100,
+    unit: '%',
+    apiKey: ''
   },
   codex: {
-    name: 'Codex CLI',
+    name: 'Codex',
     isLoggedIn: false,
     used: 0,
     limit: 18,
+    unit: 'USD',
+    apiKey: ''
+  },
+  antigravity: {
+    name: 'Antigravity',
+    isLoggedIn: true,
+    used: 320,
+    limit: 2000,
+    unit: 'Queries',
+    apiKey: ''
+  },
+  commandcodeai: {
+    name: 'Commandcodeai',
+    isLoggedIn: false,
+    used: 0,
+    limit: 20,
+    unit: 'USD',
+    apiKey: ''
+  },
+  opencode: {
+    name: 'Opencode',
+    isLoggedIn: false,
+    used: 0,
+    limit: 50,
     unit: 'USD',
     apiKey: ''
   }

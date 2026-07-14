@@ -291,99 +291,172 @@ export function QuotaFooter() {
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              {/* Login Status */}
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-foreground">Login Status:</span>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={isLoggedIn} 
-                    onChange={(e) => {
-                      setIsLoggedIn(e.target.checked)
-                      if (!e.target.checked) {
-                        setUsed(0)
-                      } else {
-                        setUsed(quotas[activeCli].used)
-                      }
-                    }} 
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-muted-foreground after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-checked:after:bg-primary-foreground"></div>
-                  <span className="ml-2 text-xs">
-                    {isLoggedIn ? 'Signed In' : 'Signed Out'}
+            {activeCli === 'claude' ? (
+              <div className="space-y-4 text-xs">
+                {/* Connection Status */}
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <span className="font-medium text-foreground">Auth Method:</span>
+                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Claude Code OAuth
                   </span>
-                </label>
-              </div>
+                </div>
 
-              {/* API Key */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="font-medium text-foreground">API Key / Token:</span>
-                  {isLoggedIn && apiKey && (
-                    <span className="text-[10px] text-emerald-500 flex items-center gap-0.5">
-                      <CheckCircle2 size={10} /> Active
+                {/* 5-Hour Session Info */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-foreground">5-Hour Rate Limit Usage:</span>
+                    <span className="text-primary font-bold">{quotas.claude.sessionUsed ?? 0}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden border border-border/50">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${quotas.claude.sessionUsed ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-muted-foreground flex justify-between">
+                    <span>Resets in:</span>
+                    <span className="font-mono font-medium text-foreground">{quotas.claude.sessionReset ?? 'Unknown'}</span>
+                  </div>
+                </div>
+
+                {/* Weekly Info */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-foreground">Weekly Rate Limit Usage (All Models):</span>
+                    <span className="text-amber-500 font-bold">{quotas.claude.weekUsed ?? 0}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden border border-border/55">
+                    <div 
+                      className="h-full bg-amber-500 transition-all duration-300"
+                      style={{ width: `${quotas.claude.weekUsed ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-muted-foreground flex justify-between">
+                    <span>Resets in:</span>
+                    <span className="font-mono font-medium text-foreground">{quotas.claude.weekReset ?? 'Unknown'}</span>
+                  </div>
+                </div>
+
+                {/* Info Tip */}
+                <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
+                  These limits are computed based on local sessions on this machine as configured by Anthropic. They do not include usage on other devices or web interfaces.
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-3 border-t border-border">
+                  <button 
+                    onClick={() => {
+                      fetchClaudeQuota()
+                    }}
+                    disabled={loadingQuota}
+                    className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-65"
+                  >
+                    <RefreshCw size={12} className={loadingQuota ? 'animate-spin' : ''} />
+                    Refresh Quota
+                  </button>
+                  <button 
+                    onClick={() => setActiveCli(null)}
+                    className="flex-1 rounded bg-secondary py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 text-xs">
+                {/* Login Status */}
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-foreground">Login Status:</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={isLoggedIn} 
+                      onChange={(e) => {
+                        setIsLoggedIn(e.target.checked)
+                        if (!e.target.checked) {
+                          setUsed(0)
+                        } else {
+                          setUsed(quotas[activeCli].used)
+                        }
+                      }} 
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-muted-foreground after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary peer-checked:after:bg-primary-foreground"></div>
+                    <span className="ml-2 text-xs">
+                      {isLoggedIn ? 'Signed In' : 'Signed Out'}
                     </span>
-                  )}
+                  </label>
                 </div>
-                <input 
-                  type="password" 
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={isLoggedIn ? "Enter API Key" : "Not signed in"}
-                  disabled={!isLoggedIn}
-                  className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
-                />
+
+                {/* API Key */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between">
+                    <span className="font-medium text-foreground">API Key / Token:</span>
+                    {isLoggedIn && apiKey && (
+                      <span className="text-[10px] text-emerald-500 flex items-center gap-0.5">
+                        <CheckCircle2 size={10} /> Active
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="password" 
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder={isLoggedIn ? "Enter API Key" : "Not signed in"}
+                    disabled={!isLoggedIn}
+                    className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Usage Stats (Only if logged in) */}
+                {isLoggedIn && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <span className="font-medium text-foreground">Used ({quotas[activeCli].unit}):</span>
+                      <input 
+                        type="number" 
+                        value={used}
+                        onChange={(e) => setUsed(Number(e.target.value))}
+                        className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="font-medium text-foreground">Limit ({quotas[activeCli].unit}):</span>
+                      <input 
+                        type="number" 
+                        value={limit}
+                        onChange={(e) => setLimit(Number(e.target.value))}
+                        className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Warnings / Tips */}
+                {isLoggedIn && used >= limit && (
+                  <div className="flex items-start gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-[10px] text-rose-500">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    <span>Quota completely exhausted! Please upgrade or increase the limit.</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 mt-5 pt-3 border-t border-border">
+                  <button 
+                    onClick={handleSave}
+                    className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors"
+                  >
+                    Save Configuration
+                  </button>
+                  <button 
+                    onClick={() => setActiveCli(null)}
+                    className="flex-1 rounded bg-secondary py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-
-              {/* Usage Stats (Only if logged in) */}
-              {isLoggedIn && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <span className="font-medium text-foreground">Used ({quotas[activeCli].unit}):</span>
-                    <input 
-                      type="number" 
-                      value={used}
-                      onChange={(e) => setUsed(Number(e.target.value))}
-                      className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <span className="font-medium text-foreground">Limit ({quotas[activeCli].unit}):</span>
-                    <input 
-                      type="number" 
-                      value={limit}
-                      onChange={(e) => setLimit(Number(e.target.value))}
-                      className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Warnings / Tips */}
-              {isLoggedIn && used >= limit && (
-                <div className="flex items-start gap-2 rounded bg-rose-500/10 border border-rose-500/20 p-2.5 text-[10px] text-rose-500">
-                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                  <span>Quota completely exhausted! Please upgrade or increase the limit.</span>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 mt-5 pt-3 border-t border-border">
-              <button 
-                onClick={handleSave}
-                className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors"
-              >
-                Save Configuration
-              </button>
-              <button 
-                onClick={() => setActiveCli(null)}
-                className="flex-1 rounded bg-secondary py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
