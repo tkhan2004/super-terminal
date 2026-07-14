@@ -13,6 +13,7 @@ export function setMainWindowForFs(win: BrowserWindow): void {
 
 export function registerFsHandlers(): void {
   ipcMain.handle('fs:readDir', handleReadDir)
+  ipcMain.handle('fs:listAllFiles', handleListAllFiles)
   ipcMain.handle('fs:watch:subscribe', handleWatchSubscribe)
   ipcMain.handle('fs:watch:unsubscribe', handleWatchUnsubscribe)
 }
@@ -72,4 +73,39 @@ async function handleWatchSubscribe(_event: unknown, rootPath: string): Promise<
 async function handleWatchUnsubscribe(_event: unknown, watchId: string): Promise<void> {
   fileWatcher.stop(watchId)
   watchRoots.delete(watchId)
+}
+
+function getFilesRecursive(dir: string, baseDir: string, filesList: string[] = []): string[] {
+  if (filesList.length > 1000) return filesList
+  try {
+    const entries = readdirSync(dir)
+    for (const entry of entries) {
+      if (entry.startsWith('.') && entry !== '.gitignore') continue
+      if (
+        entry === 'node_modules' ||
+        entry === 'dist' ||
+        entry === 'out' ||
+        entry === 'build' ||
+        entry === '.next' ||
+        entry === '.git'
+      ) {
+        continue
+      }
+      const fullPath = join(dir, entry)
+      const stat = statSync(fullPath)
+      if (stat.isDirectory()) {
+        getFilesRecursive(fullPath, baseDir, filesList)
+      } else {
+        const relativePath = fullPath.replace(baseDir, '').replace(/^[\\/]/, '')
+        filesList.push(relativePath.replace(/\\/g, '/'))
+      }
+    }
+  } catch {
+    // Ignored
+  }
+  return filesList
+}
+
+async function handleListAllFiles(_event: unknown, rootPath: string): Promise<string[]> {
+  return getFilesRecursive(rootPath, rootPath)
 }

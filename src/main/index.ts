@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { registerIpcHandlers, setMainWindow } from './ipc/registerIpcHandlers'
 import { registerFsHandlers, setMainWindowForFs } from './fs/fsHandlers'
 import { ptyManager } from './pty/ptyManager'
+import { logger } from './logging/logger'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -21,6 +22,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 let win: BrowserWindow | null = null
 
 async function createWindow(): Promise<void> {
+  logger.info('Initializing Main BrowserWindow...')
   win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -39,6 +41,7 @@ async function createWindow(): Promise<void> {
   })
 
   win.on('ready-to-show', () => {
+    logger.info('MainWindow is ready to show. Displaying window...')
     win?.show()
   })
 
@@ -60,6 +63,7 @@ async function createWindow(): Promise<void> {
 }
 
 app.on('window-all-closed', () => {
+  logger.info('All windows closed. Disposing PTY sessions and quitting...')
   ptyManager.disposeAll()
   if (process.platform !== 'darwin') {
     app.quit()
@@ -73,4 +77,7 @@ app.on('activate', () => {
   }
 })
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  logger.info('Electron Application Ready. Spawning MainWindow...')
+  createWindow()
+})

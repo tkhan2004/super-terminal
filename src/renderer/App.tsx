@@ -7,6 +7,7 @@ import { ExplorerTree } from './components/explorer/ExplorerTree'
 import { TerminalSplitView } from './components/terminal/TerminalSplitView'
 import { ContextPanel } from './components/explorer/ContextPanel'
 import { PromptBuilderBar } from './components/promptBuilder/PromptBuilderBar'
+import { CommandPalette } from './components/commandPalette/CommandPalette'
 import { useTaskStore } from './stores/taskStore'
 import { useTimelineStore } from './stores/timelineStore'
 
@@ -80,6 +81,7 @@ export default function App() {
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [newCommand, setNewCommand] = useState('shell')
   const [showNewTabDialog, setShowNewTabDialog] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [leftVisible, setLeftVisible] = useState(true)
   const [rightVisible, setRightVisible] = useState(true)
   const terminalAreaRef = useRef<HTMLDivElement>(null)
@@ -343,6 +345,91 @@ export default function App() {
     },
     [workspace, activeTabId]
   )
+
+  useEffect(() => {
+    const handleGlobalKeys = (e: KeyboardEvent) => {
+      if (!workspace) return
+
+      // Ctrl+K or Ctrl+P: Toggle Command Palette
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'p')) {
+        e.preventDefault()
+        setShowCommandPalette((v) => !v)
+        return
+      }
+
+      // Ctrl+B: Toggle Left Sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b' && !e.shiftKey) {
+        e.preventDefault()
+        setLeftVisible((v) => !v)
+        return
+      }
+
+      // Ctrl+Shift+B: Toggle Right Sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && e.shiftKey) {
+        e.preventDefault()
+        setRightVisible((v) => !v)
+        return
+      }
+
+      // Ctrl+\: Split Vertically
+      if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault()
+        handleSplit('vertical')
+        return
+      }
+
+      // Ctrl+-: Split Horizontally
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        handleSplit('horizontal')
+        return
+      }
+
+      // Ctrl+Shift+W: Close Active Tab
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        if (activeTabId) {
+          closeTab(activeTabId)
+        }
+        return
+      }
+
+      // Ctrl+PageDown / Ctrl+Alt+Right: Next Session
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key === 'PageDown') ||
+        (e.ctrlKey && e.altKey && e.key === 'ArrowRight')
+      ) {
+        e.preventDefault()
+        setTabs((prevTabs) => {
+          if (prevTabs.length <= 1) return prevTabs
+          const idx = prevTabs.findIndex((t) => t.session.id === activeTabId)
+          const nextIdx = (idx + 1) % prevTabs.length
+          setActiveTabId(prevTabs[nextIdx].session.id)
+          return prevTabs
+        })
+        return
+      }
+
+      // Ctrl+PageUp / Ctrl+Alt+Left: Prev Session
+      if (
+        ((e.ctrlKey || e.metaKey) && e.key === 'PageUp') ||
+        (e.ctrlKey && e.altKey && e.key === 'ArrowLeft')
+      ) {
+        e.preventDefault()
+        setTabs((prevTabs) => {
+          if (prevTabs.length <= 1) return prevTabs
+          const idx = prevTabs.findIndex((t) => t.session.id === activeTabId)
+          const prevIdx = (idx - 1 + prevTabs.length) % prevTabs.length
+          setActiveTabId(prevTabs[prevIdx].session.id)
+          return prevTabs
+        })
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeys)
+    return () => window.removeEventListener('keydown', handleGlobalKeys)
+  }, [workspace, activeTabId, handleSplit, closeTab])
 
   useEffect(() => {
     const handler = (): void => {
@@ -646,6 +733,22 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        workspaceRootPath={workspace?.rootPath}
+        sessions={tabs.map((t) => t.session)}
+        tasks={tasks}
+        onSelectSession={(id) => setActiveTabId(id)}
+        onAddTask={handleAddTask}
+        onPinFile={handlePinFile}
+        onSplit={handleSplit}
+        onToggleLeftSidebar={() => setLeftVisible((v) => !v)}
+        onToggleRightSidebar={() => setRightVisible((v) => !v)}
+        onCloseActiveSession={() => activeTabId && closeTab(activeTabId)}
+        onCreateSession={(cmd, type) => createTab(cmd, type)}
+      />
     </div>
   )
 }
