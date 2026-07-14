@@ -10,7 +10,8 @@ import { PromptBuilderBar } from './components/promptBuilder/PromptBuilderBar'
 import { CommandPalette } from './components/commandPalette/CommandPalette'
 import { useTaskStore } from './stores/taskStore'
 import { useTimelineStore } from './stores/timelineStore'
-import { X, Plus } from 'lucide-react'
+import { useSettingsStore } from './stores/settingsStore'
+import { X, Plus, Sun, Moon, Monitor } from 'lucide-react'
 
 function splitLeaf(
   node: SplitPaneNode,
@@ -103,6 +104,39 @@ export default function App() {
   const [sessionReferences, setSessionReferences] = useState<Record<string, string[]>>({})
   const [tabLayouts, setTabLayouts] = useState<Record<string, SplitPaneNode>>({})
   const spawningRef = useRef(false)
+
+  const { themeMode, setThemeMode } = useSettingsStore()
+
+  const cycleTheme = useCallback(() => {
+    if (themeMode === 'dark') setThemeMode('light')
+    else if (themeMode === 'light') setThemeMode('system')
+    else setThemeMode('dark')
+  }, [themeMode, setThemeMode])
+
+  useEffect(() => {
+    const root = window.document.documentElement
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    
+    const updateTheme = () => {
+      const isDark = 
+        themeMode === 'dark' || 
+        (themeMode === 'system' && mediaQuery.matches)
+      
+      if (isDark) {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    }
+
+    updateTheme()
+
+    if (themeMode === 'system') {
+      mediaQuery.addEventListener('change', updateTheme)
+      return () => mediaQuery.removeEventListener('change', updateTheme)
+    }
+    return undefined
+  }, [themeMode])
 
   const handlePinFile = useCallback((path: string) => {
     setPinnedFiles((prev) => {
@@ -701,6 +735,13 @@ export default function App() {
             onClick={() => setRightVisible((v) => !v)}
           >
             Agents
+          </button>
+          <button
+            className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
+            onClick={cycleTheme}
+            title={`Theme: ${themeMode.toUpperCase()} (Click to cycle)`}
+          >
+            {themeMode === 'light' ? <Sun size={14} /> : themeMode === 'dark' ? <Moon size={14} /> : <Monitor size={14} />}
           </button>
         </div>
       </header>
