@@ -254,8 +254,9 @@ export default function App() {
         return prev
       })
       setShowNewTabDialog(false)
+      setNewCommand('shell')
     },
-    [workspace]
+    [workspace, setNewCommand]
   )
 
   const closeTab = useCallback(
