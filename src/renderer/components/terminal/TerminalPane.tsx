@@ -59,7 +59,7 @@ export function TerminalPane({ sessionId, isActive, onActivate }: TerminalPanePr
 
   return (
     <div
-      className="h-full w-full bg-[#0a0a0a]"
+      className="h-full w-full bg-background"
       ref={containerRef}
       onClick={onActivate}
     />

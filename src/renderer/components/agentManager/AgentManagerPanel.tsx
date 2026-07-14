@@ -711,7 +711,7 @@ export function AgentManagerPanel({
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
                   Commit History
                 </div>
-                <div className="border border-border/50 rounded-lg overflow-hidden divide-y divide-border/45 bg-[#0d0d0d]">
+                <div className="border border-border/50 rounded-lg overflow-hidden divide-y divide-border/45 bg-card">
                   {gitLogs.map((log) => {
                     const isExpanded = expandedCommits[log.hash] ?? false
                     const fileData = commitFiles[log.hash]
@@ -790,7 +790,7 @@ export function AgentManagerPanel({
       {/* --- DIFF PREVIEW DIALOG MODAL --- */}
       {diffFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl h-[80vh] flex flex-col rounded-lg border border-border bg-[#0a0a0a] shadow-2xl overflow-hidden">
+          <div className="w-full max-w-3xl h-[80vh] flex flex-col rounded-lg border border-border bg-background shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex h-11 items-center justify-between border-b border-border bg-card px-4">
               <div className="flex items-center gap-2">

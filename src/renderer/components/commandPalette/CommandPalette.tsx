@@ -292,7 +292,7 @@ export function CommandPalette({
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-[2px] pt-[15vh] px-4 animate-fade-in">
       <div
         ref={containerRef}
-        className="w-full max-w-xl rounded-lg border border-border bg-[#0a0a0a] shadow-2xl overflow-hidden flex flex-col max-h-[50vh]"
+        className="w-full max-w-xl rounded-lg border border-border bg-background shadow-2xl overflow-hidden flex flex-col max-h-[50vh]"
       >
         {/* Search Input Bar */}
         <div className="flex h-12 items-center border-b border-border px-3.5 gap-2 shrink-0">

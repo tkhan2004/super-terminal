@@ -627,7 +627,7 @@ export default function App() {
 
   if (!workspace) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-[#0a0a0a] text-foreground p-6">
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-foreground p-6">
         <div className="w-full max-w-md rounded-lg border border-border bg-card p-6 shadow-2xl">
           <h1 className="mb-2 text-2xl font-bold tracking-tight text-center">AI Terminal Studio</h1>
           <p className="mb-8 text-xs text-center text-muted-foreground">
@@ -680,7 +680,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-background text-foreground">
-      <header className="flex h-10 items-center justify-between border-b border-border bg-[#050505] shrink-0 select-none">
+      <header className="flex h-10 items-center justify-between border-b border-border bg-card shrink-0 select-none">
         <div className="flex items-center h-full overflow-x-auto">
           {openWorkspaces.map((ws) => {
             const isActive = workspace.id === ws.id
@@ -746,7 +746,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex h-9 items-center justify-between border-b border-border bg-[#0d0d0d] select-none">
+      <div className="flex h-9 items-center justify-between border-b border-border bg-secondary/40 select-none">
         <div className="flex items-center h-full overflow-x-auto">
           {tabs.map((tab) => (
             <div
