@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="build/icons/icon.png" alt="Super Terminal logo" width="128" height="128" />
+
 # ⚡ Super Terminal
 
 **The operating system for AI coding agents.**
@@ -61,6 +63,12 @@ The folder contains:
 ---
 
 ## 🖥️ Preview
+
+<div align="center">
+
+![Super Terminal screenshot](https://github.com/user-attachments/assets/8b7be313-d993-4a6d-a0d4-84c1393f97c0)
+
+</div>
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
