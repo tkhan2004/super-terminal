@@ -8,6 +8,8 @@ export interface IpcChannels {
   'workspace:close': { args: [string]; result: void }
   'workspace:selectFolder': { args: []; result: string | null }
   'workspace:getState': { args: [string]; result: { sessions: Session[]; layout: WorkspaceLayout } | null }
+  'workspace:saveState': { args: [Workspace, Session[], WorkspaceLayout]; result: void }
+  'workspace:restore': { args: [string]; result: { sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace } | null }
 
   'session:create': { args: [CreateSessionOptions]; result: Session }
   'session:write': { args: [string, string]; result: void }

@@ -30,7 +30,14 @@ const api = {
     create: (name: string, rootPath: string) => invoke('workspace:create', { name, rootPath }),
     open: (id: string) => invoke('workspace:open', id),
     close: (id: string) => invoke('workspace:close', id),
-    selectFolder: () => invoke('workspace:selectFolder')
+    selectFolder: () => invoke('workspace:selectFolder'),
+    getState: (id: string) => invoke('workspace:getState', id),
+    saveState: (
+      workspace: import('@shared/types/workspace').Workspace,
+      sessions: import('@shared/types/session').Session[],
+      layout: import('@shared/types/workspace').WorkspaceLayout
+    ) => invoke('workspace:saveState', workspace, sessions, layout),
+    restore: (id: string) => invoke('workspace:restore', id)
   },
 
   session: {
@@ -51,6 +58,22 @@ const api = {
         callback(event)
       ipcRenderer.on('session:exit', handler)
       return () => ipcRenderer.removeListener('session:exit', handler)
+    }
+  },
+
+  fs: {
+    readDir: (path: string) => invoke('fs:readDir', path),
+    watch: (rootPath: string) => invoke('fs:watch:subscribe', rootPath),
+    unwatch: (watchId: string) => invoke('fs:watch:unsubscribe', watchId),
+    onWatchEvent: (
+      callback: (event: { watchId: string; type: string; path: string }) => void
+    ): (() => void) => {
+      const handler = (
+        _e: Electron.IpcRendererEvent,
+        event: { watchId: string; type: string; path: string }
+      ): void => callback(event)
+      ipcRenderer.on('fs:watch:event', handler)
+      return () => ipcRenderer.removeListener('fs:watch:event', handler)
     }
   }
 }

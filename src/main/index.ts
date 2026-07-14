@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { registerIpcHandlers, setMainWindow } from './ipc/registerIpcHandlers'
+import { registerFsHandlers, setMainWindowForFs } from './fs/fsHandlers'
 import { ptyManager } from './pty/ptyManager'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -42,7 +43,9 @@ async function createWindow(): Promise<void> {
   })
 
   setMainWindow(win)
+  setMainWindowForFs(win)
   registerIpcHandlers()
+  registerFsHandlers()
 
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
