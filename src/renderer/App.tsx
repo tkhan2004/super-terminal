@@ -690,53 +690,58 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex h-10 items-center justify-between border-b border-border bg-card px-2">
-        <div className="flex items-center gap-1">
+      <div className="flex h-9 items-center justify-between border-b border-border bg-[#0d0d0d] select-none">
+        <div className="flex items-center h-full overflow-x-auto">
           {tabs.map((tab) => (
             <div
               key={tab.session.id}
-              className={`group flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-xs ${
+              className={`group relative flex h-full cursor-pointer items-center gap-2 px-4 text-xs border-r border-border/50 transition-all ${
                 activeTabId === tab.session.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  ? 'bg-background text-foreground font-medium border-t-2 border-t-primary/80'
+                  : 'text-muted-foreground hover:bg-secondary/20 hover:text-foreground'
               }`}
               onClick={() => setActiveTabId(tab.session.id)}
+              title={tab.session.cwd ?? tab.title}
             >
-              <span>{tab.title}</span>
+              <span className="truncate max-w-[140px]">{tab.title}</span>
               <button
-                className="opacity-0 group-hover:opacity-100"
+                className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
                   closeTab(tab.session.id)
                 }}
+                title="Close terminal tab"
               >
-                ×
+                <X size={10} />
               </button>
             </div>
           ))}
           <button
-            className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-secondary"
-            onClick={() => setShowNewTabDialog(true)}
+            className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border-r border-border/50"
+            onClick={() => createTab('shell', 'shell')}
+            title="New terminal tab"
           >
-            +
+            <Plus size={14} />
           </button>
         </div>
 
         {activeTabId && (
-          <div className="flex items-center gap-2 pr-2">
+          <div className="flex items-center gap-1 px-2 shrink-0">
             <button
-              className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border border-transparent hover:border-border/50"
               onClick={() => handleSplit('vertical')}
-              title="Split Vertically"
+              title="Split pane vertically (Ctrl+\\)"
             >
-              Split Vertical
+              <span className="font-mono text-[10px]">⬜⬜</span>
+              Vertical
             </button>
             <button
-              className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border border-transparent hover:border-border/50"
               onClick={() => handleSplit('horizontal')}
-              title="Split Horizontally"
+              title="Split pane horizontally (Ctrl+-)"
             >
-              Split Horizontal
+              <span className="font-mono text-[10px]">🟰</span>
+              Horizontal
             </button>
           </div>
         )}
