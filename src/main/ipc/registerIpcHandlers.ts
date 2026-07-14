@@ -41,6 +41,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:log', handleGitLog)
   ipcMain.handle('git:branches', handleGitBranches)
   ipcMain.handle('git:checkout', handleGitCheckout)
+  ipcMain.handle('git:showFiles', handleGitShowFiles)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -322,5 +323,39 @@ async function handleGitCheckout(
     return { success: true }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+async function handleGitShowFiles(
+  _event: unknown,
+  cwd: string,
+  commitHash: string
+): Promise<{ files: string[]; stats: string }> {
+  try {
+    // Get list of files changed in this commit
+    const nameOnly = await runGit(cwd, [
+      'show',
+      '--name-only',
+      '--format=',
+      commitHash
+    ])
+    const files = nameOnly
+      .split('\n')
+      .map((f) => f.trim())
+      .filter((f) => f.length > 0)
+
+    // Get short stat summary line
+    const statOut = await runGit(cwd, [
+      'show',
+      '--stat',
+      '--format=',
+      commitHash
+    ])
+    const statLines = statOut.split('\n').filter((l) => l.trim().length > 0)
+    const stats = statLines[statLines.length - 1] ?? ''
+
+    return { files, stats }
+  } catch {
+    return { files: [], stats: '' }
   }
 }

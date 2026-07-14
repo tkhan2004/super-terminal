@@ -89,6 +89,8 @@ export function AgentManagerPanel({
   const [isGitLoading, setIsGitLoading] = useState(false)
   const [diffFile, setDiffFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<string>('')
+  const [expandedCommits, setExpandedCommits] = useState<Record<string, boolean>>({})
+  const [commitFiles, setCommitFiles] = useState<Record<string, { files: string[]; stats: string }>>({})
 
   // Timeline state
   const timelineEvents = useTimelineStore(
@@ -176,6 +178,39 @@ export function AgentManagerPanel({
       setDiffContent(diff || 'No differences found.')
     } catch (err: unknown) {
       alert(`Error fetching diff: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleViewCommitFileDiff = async (commitHash: string, filePath: string) => {
+    if (!workspaceRootPath) return
+    try {
+      const diff = await window.api.git.diff(workspaceRootPath, `${commitHash}^..${commitHash} -- ${filePath}`)
+      setDiffFile(`${filePath} @ ${commitHash}`)
+      setDiffContent(diff || 'No differences found for this file.')
+    } catch (err: unknown) {
+      // Fallback: try just viewing file diff without commit
+      try {
+        const diff = await window.api.git.diff(workspaceRootPath, filePath)
+        setDiffFile(`${filePath} @ ${commitHash}`)
+        setDiffContent(diff || 'No differences found.')
+      } catch {
+        alert(`Error fetching diff: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
+  }
+
+  const toggleCommit = async (hash: string) => {
+    const isExpanded = expandedCommits[hash]
+    setExpandedCommits((prev) => ({ ...prev, [hash]: !isExpanded }))
+
+    // Fetch file list on first expand
+    if (!isExpanded && !commitFiles[hash] && workspaceRootPath) {
+      try {
+        const result = await window.api.git.showFiles(workspaceRootPath, hash)
+        setCommitFiles((prev) => ({ ...prev, [hash]: result }))
+      } catch {
+        setCommitFiles((prev) => ({ ...prev, [hash]: { files: [], stats: '' } }))
+      }
     }
   }
 
@@ -622,20 +657,64 @@ export function AgentManagerPanel({
                   Commit History
                 </div>
                 <div className="border border-border/50 rounded-lg overflow-hidden divide-y divide-border/45 bg-[#0d0d0d]">
-                  {gitLogs.map((log) => (
-                    <div key={log.hash} className="p-2 space-y-1 hover:bg-secondary/5 transition-colors">
-                      <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-primary font-semibold">{log.hash}</span>
-                        <span className="text-muted-foreground flex items-center gap-1">
-                          <Calendar size={9} /> {log.date}
-                        </span>
+                  {gitLogs.map((log) => {
+                    const isExpanded = expandedCommits[log.hash] ?? false
+                    const fileData = commitFiles[log.hash]
+                    return (
+                      <div key={log.hash}>
+                        {/* Commit header row — click to expand */}
+                        <div
+                          className="flex items-start gap-2 p-2 cursor-pointer hover:bg-secondary/10 transition-colors select-none"
+                          onClick={() => toggleCommit(log.hash)}
+                        >
+                          <span className="mt-0.5 shrink-0 text-muted-foreground">
+                            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                          </span>
+                          <div className="flex-1 min-w-0 space-y-0.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-primary font-mono text-[10px] font-semibold">{log.hash}</span>
+                              <span className="text-muted-foreground text-[9px] font-mono flex items-center gap-1">
+                                <Calendar size={9} />{log.date}
+                              </span>
+                            </div>
+                            <div className="text-xs text-foreground font-medium line-clamp-2 leading-snug">{log.message}</div>
+                            <div className="text-[9px] text-muted-foreground flex items-center gap-1">
+                              <User size={8} />{log.author}
+                              {fileData?.stats && (
+                                <span className="ml-1 text-[9px] text-muted-foreground/70 font-mono">{fileData.stats}</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded file list */}
+                        {isExpanded && (
+                          <div className="border-t border-border/30 bg-background/30">
+                            {!fileData ? (
+                              <div className="flex items-center justify-center py-3 text-[10px] text-muted-foreground">
+                                <RefreshCw size={10} className="animate-spin mr-1.5" /> Loading files…
+                              </div>
+                            ) : fileData.files.length === 0 ? (
+                              <div className="py-2 px-4 text-[10px] text-muted-foreground">No files found.</div>
+                            ) : (
+                              <div className="divide-y divide-border/20">
+                                {fileData.files.map((file) => (
+                                  <div
+                                    key={file}
+                                    className="group flex items-center justify-between px-4 py-1.5 hover:bg-secondary/10 cursor-pointer transition-colors"
+                                    onClick={() => handleViewCommitFileDiff(log.hash, file)}
+                                  >
+                                    <span className="font-mono text-[10px] text-foreground truncate pr-2">{file}</span>
+                                    <Eye size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-foreground font-medium line-clamp-1">{log.message}</div>
-                      <div className="text-[9px] text-muted-foreground flex items-center gap-1">
-                        <User size={8} /> {log.author}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

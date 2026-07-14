@@ -26,6 +26,7 @@ export interface IpcChannels {
   'git:log': { args: [string, number?]; result: GitLogEntry[] }
   'git:branches': { args: [string]; result: string[] }
   'git:checkout': { args: [string, string]; result: { success: boolean; error?: string } }
+  'git:showFiles': { args: [string, string]; result: { files: string[]; stats: string } }
 }
 
 export interface DirEntry {
