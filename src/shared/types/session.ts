@@ -23,4 +23,6 @@ export interface CreateSessionOptions {
   cwd: string
   agentType?: AgentType
   title?: string
+  cols?: number
+  rows?: number
 }

@@ -67,8 +67,11 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
   }, [])
 
   const fit = useCallback(() => {
-    fitAddonRef.current?.fit()
-  }, [])
+    if (fitAddonRef.current && terminalRef.current) {
+      fitAddonRef.current.fit()
+      onResize?.(terminalRef.current.cols, terminalRef.current.rows)
+    }
+  }, [onResize])
 
   const focus = useCallback(() => {
     terminalRef.current?.focus()

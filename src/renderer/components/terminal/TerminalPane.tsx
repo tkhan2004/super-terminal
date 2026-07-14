@@ -25,7 +25,7 @@ export function TerminalPane({ sessionId, isActive, onActivate }: TerminalPanePr
     [sessionId]
   )
 
-  const { containerRef, write, focus } = useXtermSession({
+  const { containerRef, write, focus, fit } = useXtermSession({
     sessionId,
     onResize: handleResize,
     onData: handleData
@@ -52,9 +52,10 @@ export function TerminalPane({ sessionId, isActive, onActivate }: TerminalPanePr
 
   useEffect(() => {
     if (isActive) {
+      fit()
       focus()
     }
-  }, [isActive, focus])
+  }, [isActive, focus, fit])
 
   return (
     <div

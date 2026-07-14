@@ -31,6 +31,7 @@ export function TerminalSplitView({
         }`}
       >
         <TerminalPane
+          key={node.sessionId}
           sessionId={node.sessionId}
           isActive={activeSessionId === node.sessionId}
           onActivate={() => onActivateSession(node.sessionId)}

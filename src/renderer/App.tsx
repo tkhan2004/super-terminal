@@ -191,12 +191,23 @@ export default function App() {
     async (command: string, agentType: AgentType) => {
       if (!workspace) return
 
+      let cols = 80
+      let rows = 24
+      if (terminalAreaRef.current) {
+        const width = terminalAreaRef.current.clientWidth
+        const height = terminalAreaRef.current.clientHeight
+        cols = Math.max(80, Math.floor(width / 8.5))
+        rows = Math.max(24, Math.floor(height / 18))
+      }
+
       const session = await window.api.session.create({
         workspaceId: workspace.id,
         command,
         cwd: workspace.rootPath,
         agentType,
-        title: command === 'shell' ? 'Terminal' : command
+        title: command === 'shell' ? 'Terminal' : command,
+        cols,
+        rows
       })
 
       const tab: TerminalTab = { session, title: session.title }
@@ -784,6 +795,7 @@ export default function App() {
               >
                 {layoutTree ? (
                   <TerminalSplitView
+                    key={workspace.id}
                     node={layoutTree}
                     activeSessionId={activeTabId}
                     onActivateSession={(id) => setActiveTabId(id)}

@@ -125,7 +125,9 @@ async function handleSessionCreate(
     command: opts.command,
     cwd: opts.cwd,
     agentType: opts.agentType ?? 'shell',
-    title: opts.title
+    title: opts.title,
+    cols: opts.cols,
+    rows: opts.rows
   })
 
   const win = getMainWindow()
