@@ -54,7 +54,23 @@ export function TerminalPane({ sessionId, isActive, onActivate }: TerminalPanePr
     if (isActive) {
       fit()
       focus()
+      
+      const raf = requestAnimationFrame(() => {
+        fit()
+        focus()
+      })
+
+      const timer = setTimeout(() => {
+        fit()
+        focus()
+      }, 50)
+
+      return () => {
+        cancelAnimationFrame(raf)
+        clearTimeout(timer)
+      }
     }
+    return undefined
   }, [isActive, focus, fit])
 
   return (
