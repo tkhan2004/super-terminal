@@ -10,6 +10,7 @@ import { PromptBuilderBar } from './components/promptBuilder/PromptBuilderBar'
 import { CommandPalette } from './components/commandPalette/CommandPalette'
 import { useTaskStore } from './stores/taskStore'
 import { useTimelineStore } from './stores/timelineStore'
+import { X, Plus } from 'lucide-react'
 
 function splitLeaf(
   node: SplitPaneNode,
@@ -77,6 +78,7 @@ interface TerminalTab {
 
 export default function App() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
+  const [openWorkspaces, setOpenWorkspaces] = useState<Workspace[]>([])
   const [tabs, setTabs] = useState<TerminalTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [newCommand, setNewCommand] = useState('shell')
@@ -183,57 +185,7 @@ export default function App() {
     setWorkspacesList(list)
   }, [])
 
-  const openWorkspace = useCallback(async (ws: Workspace) => {
-    try {
-      const state = await window.api.workspace.restore(ws.id)
-      if (state) {
-        setWorkspace(state.workspace)
-        setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
-        setActiveTabId(state.layout.activeSessionId)
-        setLayoutTree(state.layout.splitPaneTree)
-        setTasks(state.tasks ?? [])
-        setPinnedFiles(state.pinnedFiles ?? [])
-        setTabLayouts(state.layout.tabLayouts ?? {})
-      } else {
-        setWorkspace(ws)
-        setTabs([])
-        setActiveTabId(null)
-        setLayoutTree(null)
-        setTasks([])
-        setPinnedFiles([])
-        setTabLayouts({})
-      }
-    } catch (err) {
-      console.error('[Renderer] Error in openWorkspace:', err)
-    }
-  }, [setTasks, setTabLayouts])
 
-  const selectFolder = useCallback(async () => {
-    try {
-      const folderPath = await window.api.workspace.selectFolder()
-      if (!folderPath) {
-        console.log('[Renderer] selectFolder: No path returned')
-        return
-      }
-
-      const folderName = folderPath.split(/[\\/]/).pop() || folderPath
-      const list = await window.api.workspace.list()
-      const existing = list.find((w: Workspace) => w.rootPath === folderPath)
-      if (existing) {
-        await openWorkspace(existing)
-      } else {
-        const ws = await window.api.workspace.create(folderName, folderPath)
-        setWorkspace(ws)
-        setTabs([])
-        setActiveTabId(null)
-        setLayoutTree(null)
-        setTasks([])
-        setPinnedFiles([])
-      }
-    } catch (err) {
-      console.error('[Renderer] Error in selectFolder:', err)
-    }
-  }, [openWorkspace, setTasks])
 
   const createTab = useCallback(
     async (command: string, agentType: AgentType) => {
@@ -316,22 +268,122 @@ export default function App() {
     )
   }, [workspace, tabs, activeTabId, layoutTree, tasks, pinnedFiles, tabLayouts])
 
-  const closeWorkspace = useCallback(async () => {
-    if (!workspace) return
-    await saveState()
-    for (const tab of tabs) {
-      await window.api.session.kill(tab.session.id)
+  const openWorkspace = useCallback(async (ws: Workspace) => {
+    try {
+      if (workspace) {
+        await saveState()
+      }
+
+      const state = await window.api.workspace.restore(ws.id)
+      if (state) {
+        setWorkspace(state.workspace)
+        setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
+        setActiveTabId(state.layout.activeSessionId)
+        setLayoutTree(state.layout.splitPaneTree)
+        setTasks(state.tasks ?? [])
+        setPinnedFiles(state.pinnedFiles ?? [])
+        setTabLayouts(state.layout.tabLayouts ?? {})
+      } else {
+        setWorkspace(ws)
+        setTabs([])
+        setActiveTabId(null)
+        setLayoutTree(null)
+        setTasks([])
+        setPinnedFiles([])
+        setTabLayouts({})
+      }
+
+      setOpenWorkspaces((prev) => {
+        if (prev.some((w) => w.id === ws.id)) return prev
+        return [...prev, ws]
+      })
+    } catch (err) {
+      console.error('[Renderer] Error in openWorkspace:', err)
     }
-    setWorkspace(null)
-    setTabs([])
-    setActiveTabId(null)
-    setLayoutTree(null)
-    setTasks([])
-    setPinnedFiles([])
-    setSessionReferences({})
-    spawningRef.current = false
-    loadWorkspacesList()
-  }, [workspace, tabs, saveState, loadWorkspacesList, setTasks])
+  }, [workspace, saveState, setTasks, setTabLayouts, setOpenWorkspaces])
+
+  const selectFolder = useCallback(async () => {
+    try {
+      const folderPath = await window.api.workspace.selectFolder()
+      if (!folderPath) {
+        console.log('[Renderer] selectFolder: No path returned')
+        return
+      }
+
+      const folderName = folderPath.split(/[\\/]/).pop() || folderPath
+      const list = await window.api.workspace.list()
+      const existing = list.find((w: Workspace) => w.rootPath === folderPath)
+      if (existing) {
+        await openWorkspace(existing)
+      } else {
+        const ws = await window.api.workspace.create(folderName, folderPath)
+        if (workspace) {
+          await saveState()
+        }
+        setWorkspace(ws)
+        setTabs([])
+        setActiveTabId(null)
+        setLayoutTree(null)
+        setTasks([])
+        setPinnedFiles([])
+        setTabLayouts({})
+        setOpenWorkspaces((prev) => {
+          if (prev.some((w) => w.id === ws.id)) return prev
+          return [...prev, ws]
+        })
+      }
+    } catch (err) {
+      console.error('[Renderer] Error in selectFolder:', err)
+    }
+  }, [workspace, openWorkspace, saveState, setTasks])
+
+  const closeProjectTab = useCallback(async (wsId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const wsToClose = openWorkspaces.find((w) => w.id === wsId)
+    if (!wsToClose) return
+
+    if (workspace && workspace.id === wsId) {
+      await saveState()
+      for (const tab of tabs) {
+        await window.api.session.kill(tab.session.id)
+      }
+
+      const remaining = openWorkspaces.filter((w) => w.id !== wsId)
+      if (remaining.length > 0) {
+        const nextWs = remaining[remaining.length - 1]
+        setWorkspace(null)
+        setTabs([])
+        setActiveTabId(null)
+        setLayoutTree(null)
+        setTasks([])
+        setPinnedFiles([])
+        setTabLayouts({})
+        await openWorkspace(nextWs)
+      } else {
+        setWorkspace(null)
+        setTabs([])
+        setActiveTabId(null)
+        setLayoutTree(null)
+        setTasks([])
+        setPinnedFiles([])
+        setTabLayouts({})
+      }
+    } else {
+      try {
+        const state = await window.api.workspace.restore(wsId)
+        if (state) {
+          for (const s of state.sessions) {
+            await window.api.session.kill(s.id)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to clean up sessions for closed project:', err)
+      }
+    }
+    setOpenWorkspaces((prev) => prev.filter((w) => w.id !== wsId))
+  }, [workspace, openWorkspaces, tabs, saveState, openWorkspace, setTasks])
+
+
 
   const handleSplit = useCallback(
     async (direction: 'horizontal' | 'vertical') => {
@@ -579,26 +631,58 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-background text-foreground">
-      <header className="flex h-10 items-center justify-between border-b border-border px-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-semibold">{workspace.name}</span>
-          <span className="text-xs text-muted-foreground truncate max-w-md">{workspace.rootPath}</span>
+      <header className="flex h-10 items-center justify-between border-b border-border bg-[#050505] shrink-0 select-none">
+        <div className="flex items-center h-full overflow-x-auto">
+          {openWorkspaces.map((ws) => {
+            const isActive = workspace.id === ws.id
+            return (
+              <div
+                key={ws.id}
+                className={`group flex items-center h-full gap-2 border-r border-border px-4 py-2 text-xs cursor-pointer transition-all relative ${
+                  isActive
+                    ? 'bg-background text-foreground font-semibold border-t-2 border-t-primary'
+                    : 'text-muted-foreground hover:bg-secondary/20 hover:text-foreground'
+                }`}
+                onClick={() => {
+                  if (!isActive) {
+                    openWorkspace(ws)
+                  }
+                }}
+                title={ws.rootPath}
+              >
+                <span className="truncate max-w-[120px]">{ws.name}</span>
+                <button
+                  className="rounded-full p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground opacity-60 group-hover:opacity-100 transition-opacity ml-1"
+                  onClick={(e) => closeProjectTab(ws.id, e)}
+                  title="Close Project"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )
+          })}
+          
           <button
-            className="rounded px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground border border-border/50 transition-colors"
-            onClick={closeWorkspace}
+            className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors border-r border-border"
+            onClick={selectFolder}
+            title="Open another project..."
           >
-            Close
+            <Plus size={14} />
           </button>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-3 pr-3">
+          <span className="text-[10px] font-mono text-muted-foreground truncate max-w-sm hidden md:inline">
+            {workspace.rootPath}
+          </span>
           <button
-            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
+            className="rounded px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary"
             onClick={() => setLeftVisible((v) => !v)}
           >
             Explorer
           </button>
           <button
-            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary"
+            className="rounded px-2.5 py-1 text-xs text-muted-foreground hover:bg-secondary"
             onClick={() => setRightVisible((v) => !v)}
           >
             Agents
