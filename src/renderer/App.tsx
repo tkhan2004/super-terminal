@@ -152,41 +152,52 @@ export default function App() {
   }, [])
 
   const openWorkspace = useCallback(async (ws: Workspace) => {
-    const state = await window.api.workspace.restore(ws.id)
-    if (state) {
-      setWorkspace(state.workspace)
-      setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
-      setActiveTabId(state.layout.activeSessionId)
-      setLayoutTree(state.layout.splitPaneTree)
-      setTasks(state.tasks ?? [])
-      setPinnedFiles(state.pinnedFiles ?? [])
-    } else {
-      setWorkspace(ws)
-      setTabs([])
-      setActiveTabId(null)
-      setLayoutTree(null)
-      setTasks([])
-      setPinnedFiles([])
+    try {
+      const state = await window.api.workspace.restore(ws.id)
+      if (state) {
+        setWorkspace(state.workspace)
+        setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
+        setActiveTabId(state.layout.activeSessionId)
+        setLayoutTree(state.layout.splitPaneTree)
+        setTasks(state.tasks ?? [])
+        setPinnedFiles(state.pinnedFiles ?? [])
+      } else {
+        setWorkspace(ws)
+        setTabs([])
+        setActiveTabId(null)
+        setLayoutTree(null)
+        setTasks([])
+        setPinnedFiles([])
+      }
+    } catch (err) {
+      console.error('[Renderer] Error in openWorkspace:', err)
     }
   }, [setTasks])
 
   const selectFolder = useCallback(async () => {
-    const folderPath = await window.api.workspace.selectFolder()
-    if (!folderPath) return
+    try {
+      const folderPath = await window.api.workspace.selectFolder()
+      if (!folderPath) {
+        console.log('[Renderer] selectFolder: No path returned')
+        return
+      }
 
-    const folderName = folderPath.split(/[\\/]/).pop() || folderPath
-    const list = await window.api.workspace.list()
-    const existing = list.find((w: Workspace) => w.rootPath === folderPath)
-    if (existing) {
-      await openWorkspace(existing)
-    } else {
-      const ws = await window.api.workspace.create(folderName, folderPath)
-      setWorkspace(ws)
-      setTabs([])
-      setActiveTabId(null)
-      setLayoutTree(null)
-      setTasks([])
-      setPinnedFiles([])
+      const folderName = folderPath.split(/[\\/]/).pop() || folderPath
+      const list = await window.api.workspace.list()
+      const existing = list.find((w: Workspace) => w.rootPath === folderPath)
+      if (existing) {
+        await openWorkspace(existing)
+      } else {
+        const ws = await window.api.workspace.create(folderName, folderPath)
+        setWorkspace(ws)
+        setTabs([])
+        setActiveTabId(null)
+        setLayoutTree(null)
+        setTasks([])
+        setPinnedFiles([])
+      }
+    } catch (err) {
+      console.error('[Renderer] Error in selectFolder:', err)
     }
   }, [openWorkspace, setTasks])
 

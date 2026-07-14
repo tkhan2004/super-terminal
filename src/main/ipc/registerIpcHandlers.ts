@@ -63,13 +63,17 @@ async function handleWorkspaceClose(_event: unknown, id: string): Promise<void> 
 }
 
 async function handleWorkspaceSelectFolder(): Promise<string | null> {
-  const win = getMainWindow()
-  if (!win) return null
-  const result = await dialog.showOpenDialog(win, {
-    properties: ['openDirectory']
-  })
-  if (result.canceled || result.filePaths.length === 0) return null
-  return result.filePaths[0]
+  try {
+    const win = getMainWindow()
+    const result = win
+      ? await dialog.showOpenDialog(win, { properties: ['openDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  } catch (err) {
+    console.error('[Main] Error in selectFolder dialog:', err)
+    return null
+  }
 }
 
 async function handleWorkspaceGetState(
