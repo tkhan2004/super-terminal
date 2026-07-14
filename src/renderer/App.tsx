@@ -99,6 +99,7 @@ export default function App() {
   } = useTaskStore()
   const [pinnedFiles, setPinnedFiles] = useState<string[]>([])
   const [sessionReferences, setSessionReferences] = useState<Record<string, string[]>>({})
+  const [tabLayouts, setTabLayouts] = useState<Record<string, SplitPaneNode>>({})
   const spawningRef = useRef(false)
 
   const handlePinFile = useCallback((path: string) => {
@@ -192,6 +193,7 @@ export default function App() {
         setLayoutTree(state.layout.splitPaneTree)
         setTasks(state.tasks ?? [])
         setPinnedFiles(state.pinnedFiles ?? [])
+        setTabLayouts(state.layout.tabLayouts ?? {})
       } else {
         setWorkspace(ws)
         setTabs([])
@@ -199,11 +201,12 @@ export default function App() {
         setLayoutTree(null)
         setTasks([])
         setPinnedFiles([])
+        setTabLayouts({})
       }
     } catch (err) {
       console.error('[Renderer] Error in openWorkspace:', err)
     }
-  }, [setTasks])
+  }, [setTasks, setTabLayouts])
 
   const selectFolder = useCallback(async () => {
     try {
@@ -246,17 +249,15 @@ export default function App() {
 
       const tab: TerminalTab = { session, title: session.title }
       setTabs((prev) => [...prev, tab])
+      setTabLayouts((prev) => ({
+        ...prev,
+        [session.id]: { type: 'leaf', sessionId: session.id }
+      }))
       setActiveTabId(session.id)
-      setLayoutTree((prev) => {
-        if (!prev || (prev.type === 'leaf' && !prev.sessionId)) {
-          return { type: 'leaf', sessionId: session.id }
-        }
-        return prev
-      })
       setShowNewTabDialog(false)
       setNewCommand('shell')
     },
-    [workspace, setNewCommand]
+    [workspace, setNewCommand, setTabLayouts]
   )
 
   const closeTab = useCallback(
@@ -278,12 +279,21 @@ export default function App() {
         setActiveTabId(nextActiveId)
       }
 
-      setLayoutTree((prev) => {
-        if (!prev) return null
-        return removeLeaf(prev, sessionId)
+      setTabLayouts((prev) => {
+        const copy = { ...prev }
+        for (const [key, tree] of Object.entries(copy)) {
+          const updated = removeLeaf(tree, sessionId)
+          if (updated) {
+            copy[key] = updated
+          } else {
+            delete copy[key]
+          }
+        }
+        delete copy[sessionId]
+        return copy
       })
     },
-    [activeTabId]
+    [activeTabId, setTabLayouts]
   )
 
   const saveState = useCallback(async () => {
@@ -293,7 +303,8 @@ export default function App() {
       workspaceId: workspace.id,
       windowBounds: { x: 100, y: 100, width: 1280, height: 800 },
       splitPaneTree: layoutTree ?? { type: 'leaf', sessionId: activeTabId ?? '' },
-      activeSessionId: activeTabId
+      activeSessionId: activeTabId,
+      tabLayouts
     }
 
     await window.api.workspace.saveState(
@@ -303,7 +314,7 @@ export default function App() {
       tasks,
       pinnedFiles
     )
-  }, [workspace, tabs, activeTabId, layoutTree, tasks, pinnedFiles])
+  }, [workspace, tabs, activeTabId, layoutTree, tasks, pinnedFiles, tabLayouts])
 
   const closeWorkspace = useCallback(async () => {
     if (!workspace) return
@@ -337,16 +348,24 @@ export default function App() {
       const tab: TerminalTab = { session: newSession, title: newSession.title }
       setTabs((prev) => [...prev, tab])
       
-      setLayoutTree((prev) => {
-        if (!prev) {
-          return { type: 'leaf', sessionId: newSession.id }
+      setTabLayouts((prev) => {
+        const copy = { ...prev }
+        // Find which tab root contains activeTabId
+        let foundTabKey = activeTabId
+        for (const [key, tree] of Object.entries(copy)) {
+          if (JSON.stringify(tree).includes(activeTabId)) {
+            foundTabKey = key
+            break
+          }
         }
-        return splitLeaf(prev, activeTabId, newSession.id, direction)
+        const currentTree = copy[foundTabKey] ?? { type: 'leaf', sessionId: activeTabId }
+        copy[foundTabKey] = splitLeaf(currentTree, activeTabId, newSession.id, direction)
+        return copy
       })
 
       setActiveTabId(newSession.id)
     },
-    [workspace, activeTabId]
+    [workspace, activeTabId, setTabLayouts]
   )
 
   useEffect(() => {
@@ -447,6 +466,28 @@ export default function App() {
       loadWorkspacesList()
     }
   }, [workspace, loadWorkspacesList])
+
+  useEffect(() => {
+    if (activeTabId) {
+      // Find the tab root layout that contains activeTabId
+      let foundTabKey = activeTabId
+      for (const [key, tree] of Object.entries(tabLayouts)) {
+        if (JSON.stringify(tree).includes(activeTabId)) {
+          foundTabKey = key
+          break
+        }
+      }
+      const activeLayout = tabLayouts[foundTabKey] ?? { type: 'leaf', sessionId: activeTabId }
+      setLayoutTree((prev) => {
+        if (JSON.stringify(prev) !== JSON.stringify(activeLayout)) {
+          return activeLayout
+        }
+        return prev
+      })
+    } else {
+      setLayoutTree(null)
+    }
+  }, [activeTabId, tabLayouts])
 
   useEffect(() => {
     if (workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
@@ -657,7 +698,23 @@ export default function App() {
                     node={layoutTree}
                     activeSessionId={activeTabId}
                     onActivateSession={(id) => setActiveTabId(id)}
-                    onResizePane={(updatedNode) => setLayoutTree(updatedNode)}
+                    onResizePane={(updatedNode) => {
+                      setLayoutTree(updatedNode)
+                      if (activeTabId) {
+                        setTabLayouts((prev) => {
+                          const copy = { ...prev }
+                          let foundTabKey = activeTabId
+                          for (const [key, tree] of Object.entries(copy)) {
+                            if (JSON.stringify(tree).includes(activeTabId)) {
+                              foundTabKey = key
+                              break
+                            }
+                          }
+                          copy[foundTabKey] = updatedNode
+                          return copy
+                        })
+                      }
+                    }}
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

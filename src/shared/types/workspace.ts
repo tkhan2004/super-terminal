@@ -11,6 +11,7 @@ export interface WorkspaceLayout {
   windowBounds: { x: number; y: number; width: number; height: number }
   splitPaneTree: SplitPaneNode
   activeSessionId: string | null
+  tabLayouts?: Record<string, SplitPaneNode>
 }
 
 export type SplitPaneNode =
