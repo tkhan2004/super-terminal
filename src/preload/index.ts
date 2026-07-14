@@ -5,6 +5,8 @@ import type {
   IpcInvokeResult
 } from '@shared/types/ipc'
 
+console.log('[Preload] Preload script is executing!')
+
 function invoke<C extends IpcInvokeChannel>(
   channel: C,
   ...args: IpcInvokeArgs<C>
@@ -82,12 +84,10 @@ const api = {
 
 export type TerminalApi = typeof api
 
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error('Failed to expose API via contextBridge:', error)
-  }
-} else {
-  (window as unknown as { api: typeof api }).api = api
+try {
+  contextBridge.exposeInMainWorld('api', api)
+  console.log('[Preload] API exposed successfully via contextBridge!')
+} catch (error) {
+  console.warn('[Preload] Failed to expose API via contextBridge, falling back to window assignment:', error)
+  ;(window as unknown as { api: typeof api }).api = api
 }
