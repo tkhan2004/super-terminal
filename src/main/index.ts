@@ -20,8 +20,34 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST
 
 let win: BrowserWindow | null = null
+let splash: BrowserWindow | null = null
+
+async function createSplashWindow(): Promise<void> {
+  splash = new BrowserWindow({
+    width: 480,
+    height: 320,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    center: true,
+    backgroundColor: '#0a0a0a',
+    webPreferences: {
+      sandbox: true
+    }
+  })
+
+  if (VITE_DEV_SERVER_URL) {
+    await splash.loadURL(`${VITE_DEV_SERVER_URL}/splash.html`)
+  } else {
+    await splash.loadFile(resolve(RENDERER_DIST, 'splash.html'))
+  }
+}
 
 async function createWindow(): Promise<void> {
+  logger.info('Initializing Splash Window...')
+  await createSplashWindow()
+
   logger.info('Initializing Main BrowserWindow...')
   win = new BrowserWindow({
     width: 1280,
@@ -42,6 +68,10 @@ async function createWindow(): Promise<void> {
 
   win.on('ready-to-show', () => {
     logger.info('MainWindow is ready to show. Displaying window...')
+    if (splash) {
+      splash.close()
+      splash = null
+    }
     win?.show()
   })
 
