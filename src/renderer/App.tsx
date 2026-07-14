@@ -6,7 +6,9 @@ import { AgentManagerPanel } from './components/agentManager/AgentManagerPanel'
 import { ExplorerTree } from './components/explorer/ExplorerTree'
 import { TerminalSplitView } from './components/terminal/TerminalSplitView'
 import { ContextPanel } from './components/explorer/ContextPanel'
+import { PromptBuilderBar } from './components/promptBuilder/PromptBuilderBar'
 import { useTaskStore } from './stores/taskStore'
+import { useTimelineStore } from './stores/timelineStore'
 
 function splitLeaf(
   node: SplitPaneNode,
@@ -145,6 +147,32 @@ export default function App() {
       assignSessionToTask(taskId, sessionId)
     }
   }, [assignSessionToTask, unassignSessionFromTask])
+
+  const handleSendPrompt = useCallback((text: string, attachedFiles: string[]) => {
+    if (!activeTabId) return
+    const composed = text + (attachedFiles.length > 0 ? ' ' + attachedFiles.map(f => `@${f}`).join(' ') : '')
+    window.api.session.write(activeTabId, composed + '\n')
+
+    if (attachedFiles.length > 0) {
+      setSessionReferences((prev) => {
+        const current = prev[activeTabId] ?? []
+        const updated = [...current]
+        for (const file of attachedFiles) {
+          if (!updated.includes(file)) {
+            updated.push(file)
+          }
+        }
+        return { ...prev, [activeTabId]: updated }
+      })
+    }
+
+    useTimelineStore.getState().addEvent(activeTabId, {
+      type: 'prompt',
+      title: 'Prompt Sent',
+      description: text + (attachedFiles.length > 0 ? ` (attached: ${attachedFiles.join(', ')})` : ''),
+      status: 'info'
+    })
+  }, [activeTabId])
 
   const loadWorkspacesList = useCallback(async () => {
     const list = await window.api.workspace.list()
@@ -524,24 +552,31 @@ export default function App() {
             </div>
           }
           center={
-            <div
-              ref={terminalAreaRef}
-              className="h-full w-full"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-            >
-              {layoutTree ? (
-                <TerminalSplitView
-                  node={layoutTree}
-                  activeSessionId={activeTabId}
-                  onActivateSession={(id) => setActiveTabId(id)}
-                  onResizePane={(updatedNode) => setLayoutTree(updatedNode)}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                  No active terminal. Click + to create one.
-                </div>
-              )}
+            <div className="flex h-full flex-col">
+              <div
+                ref={terminalAreaRef}
+                className="flex-1 w-full overflow-hidden"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+              >
+                {layoutTree ? (
+                  <TerminalSplitView
+                    node={layoutTree}
+                    activeSessionId={activeTabId}
+                    onActivateSession={(id) => setActiveTabId(id)}
+                    onResizePane={(updatedNode) => setLayoutTree(updatedNode)}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    No active terminal. Click + to create one.
+                  </div>
+                )}
+              </div>
+              <PromptBuilderBar
+                activeSessionId={activeTabId}
+                pinnedFiles={pinnedFiles}
+                onSendPrompt={handleSendPrompt}
+              />
             </div>
           }
           right={
@@ -556,6 +591,7 @@ export default function App() {
               onRenameTask={handleRenameTask}
               onRemoveTask={handleRemoveTask}
               onAssignSession={handleAssignSession}
+              workspaceRootPath={workspace?.rootPath}
             />
           }
         />

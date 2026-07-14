@@ -79,6 +79,14 @@ const api = {
       ipcRenderer.on('fs:watch:event', handler)
       return () => ipcRenderer.removeListener('fs:watch:event', handler)
     }
+  },
+
+  git: {
+    status: (cwd: string) => invoke('git:status', cwd),
+    diff: (cwd: string, filePath?: string) => invoke('git:diff', cwd, filePath),
+    log: (cwd: string, limit?: number) => invoke('git:log', cwd, limit),
+    branches: (cwd: string) => invoke('git:branches', cwd),
+    checkout: (cwd: string, branchName: string) => invoke('git:checkout', cwd, branchName)
   }
 }
 

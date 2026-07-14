@@ -4,8 +4,10 @@ import type { Session, CreateSessionOptions } from '@shared/types/session'
 import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
 import type { Task } from '@shared/types/task'
 import { randomUUID } from 'node:crypto'
+import { execFile } from 'node:child_process'
 import { WorkspaceRepositoryJson } from '../workspace/workspaceRepositoryJson'
 import { RestoreService } from '../workspace/restoreService'
+import type { GitStatus, GitLogEntry } from '@shared/types/ipc'
 
 let mainWindow: BrowserWindow | null = null
 const repo = new WorkspaceRepositoryJson()
@@ -33,6 +35,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('session:write', handleSessionWrite)
   ipcMain.handle('session:resize', handleSessionResize)
   ipcMain.handle('session:kill', handleSessionKill)
+
+  ipcMain.handle('git:status', handleGitStatus)
+  ipcMain.handle('git:diff', handleGitDiff)
+  ipcMain.handle('git:log', handleGitLog)
+  ipcMain.handle('git:branches', handleGitBranches)
+  ipcMain.handle('git:checkout', handleGitCheckout)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -163,4 +171,156 @@ async function handleSessionResize(
 
 async function handleSessionKill(_event: unknown, sessionId: string): Promise<void> {
   ptyManager.kill(sessionId)
+}
+
+/* Git Helper and IPC Handlers */
+
+function runGit(cwd: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile('git', args, { cwd }, (error, stdout) => {
+      if (error) reject(error)
+      else resolve(stdout)
+    })
+  })
+}
+
+async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus> {
+  const defaultStatus: GitStatus = {
+    branch: '',
+    modified: [],
+    staged: [],
+    untracked: [],
+    ahead: 0,
+    behind: 0
+  }
+  try {
+    await runGit(cwd, ['rev-parse', '--is-inside-work-tree'])
+    
+    let branch = ''
+    try {
+      branch = (await runGit(cwd, ['branch', '--show-current'])).trim()
+      if (!branch) {
+        branch = (await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])).trim()
+      }
+    } catch {
+      branch = 'HEAD'
+    }
+
+    const statusOutput = await runGit(cwd, ['status', '--porcelain'])
+    const lines = statusOutput.split('\n')
+    const modified: string[] = []
+    const staged: string[] = []
+    const untracked: string[] = []
+
+    for (const line of lines) {
+      if (line.length < 4) continue
+      const indexStatus = line[0]
+      const worktreeStatus = line[1]
+      const filePath = line.substring(3).trim()
+
+      if (indexStatus === '?' && worktreeStatus === '?') {
+        untracked.push(filePath)
+      } else {
+        if (indexStatus !== ' ' && indexStatus !== '?') {
+          staged.push(filePath)
+        }
+        if (worktreeStatus !== ' ' && worktreeStatus !== '?') {
+          modified.push(filePath)
+        }
+      }
+    }
+
+    let ahead = 0
+    let behind = 0
+    try {
+      const abOutput = await runGit(cwd, ['rev-list', '--left-right', '--count', 'HEAD...@{u}'])
+      const parts = abOutput.trim().split(/\s+/)
+      if (parts.length === 2) {
+        ahead = parseInt(parts[0], 10) || 0
+        behind = parseInt(parts[1], 10) || 0
+      }
+    } catch {
+      // Ignored
+    }
+
+    return {
+      branch,
+      modified,
+      staged,
+      untracked,
+      ahead,
+      behind
+    }
+  } catch {
+    return defaultStatus
+  }
+}
+
+async function handleGitDiff(_event: unknown, cwd: string, filePath?: string): Promise<string> {
+  try {
+    const args = ['diff', 'HEAD']
+    if (filePath) {
+      args.push('--', filePath)
+    }
+    return await runGit(cwd, args)
+  } catch (err: unknown) {
+    return `Error getting diff: ${err instanceof Error ? err.message : String(err)}`
+  }
+}
+
+async function handleGitLog(
+  _event: unknown,
+  cwd: string,
+  limit: number = 20
+): Promise<GitLogEntry[]> {
+  try {
+    const stdout = await runGit(cwd, [
+      'log',
+      `-n`,
+      String(limit),
+      `--pretty=format:%h%n%s%n%an%n%ad%n---`
+    ])
+    const entries: GitLogEntry[] = []
+    const blocks = stdout.split('\n---\n')
+    for (const block of blocks) {
+      const lines = block.split('\n')
+      if (lines.length >= 4) {
+        entries.push({
+          hash: lines[0].trim(),
+          message: lines[1].trim(),
+          author: lines[2].trim(),
+          date: lines[3].trim()
+        })
+      }
+    }
+    return entries
+  } catch {
+    return []
+  }
+}
+
+async function handleGitBranches(_event: unknown, cwd: string): Promise<string[]> {
+  try {
+    const stdout = await runGit(cwd, ['branch', '-a', '--format=%(refname:short)'])
+    const branches = stdout
+      .split('\n')
+      .map((b) => b.trim())
+      .filter((b) => b.length > 0 && !b.includes('origin/HEAD'))
+    return Array.from(new Set(branches))
+  } catch {
+    return []
+  }
+}
+
+async function handleGitCheckout(
+  _event: unknown,
+  cwd: string,
+  branchName: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await runGit(cwd, ['checkout', branchName])
+    return { success: true }
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  }
 }
