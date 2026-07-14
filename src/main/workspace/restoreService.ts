@@ -33,6 +33,7 @@ export class RestoreService {
     for (const savedSession of state.sessions) {
       if (autoResume && savedSession.status !== 'exited') {
         const session = ptyManager.createSession({
+          id: savedSession.id,
           command: savedSession.command,
           cwd: savedSession.cwd,
           agentType: savedSession.agentType,
@@ -59,7 +60,7 @@ export class RestoreService {
 
     const layout: WorkspaceLayout = {
       ...state.layout,
-      activeSessionId: restoredSessions.length > 0 ? restoredSessions[0].id : null
+      activeSessionId: state.layout.activeSessionId ?? (restoredSessions.length > 0 ? restoredSessions[0].id : null)
     }
 
     return {

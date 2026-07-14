@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import type { AgentType, SessionStatus } from '@shared/types/session'
 
 export interface PtySessionOptions {
+  id?: string
   command: string
   cwd: string
   agentType?: AgentType
@@ -37,7 +38,7 @@ export class PtySession extends EventEmitter {
 
   constructor(options: PtySessionOptions) {
     super()
-    this.id = randomUUID()
+    this.id = options.id ?? randomUUID()
     this.command = options.command
     this.cwd = options.cwd
     this.agentType = options.agentType ?? 'shell'
