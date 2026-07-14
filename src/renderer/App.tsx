@@ -330,6 +330,12 @@ export default function App() {
     }
   }, [workspace, loadWorkspacesList])
 
+  useEffect(() => {
+    if (workspace && tabs.length === 0 && !showNewTabDialog) {
+      createTab('shell', 'shell')
+    }
+  }, [workspace, tabs.length, createTab, showNewTabDialog])
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault()
