@@ -1,0 +1,27 @@
+appId: com.aiterminal.studio
+productName: AI Terminal Studio
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - node_modules/**/*
+  - package.json
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AI Terminal Studio
+publish:
+  provider: github
+  owner: ai-terminal-studio
+  repo: super-terminal
+  releaseType: release

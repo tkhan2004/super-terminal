@@ -1,0 +1,120 @@
+import { ipcMain, dialog, BrowserWindow } from 'electron'
+import { ptyManager } from '../pty/ptyManager'
+import type { Session, CreateSessionOptions } from '@shared/types/session'
+import type { Workspace } from '@shared/types/workspace'
+import { randomUUID } from 'node:crypto'
+
+let mainWindow: BrowserWindow | null = null
+
+export function setMainWindow(win: BrowserWindow): void {
+  mainWindow = win
+}
+
+function getMainWindow(): BrowserWindow | null {
+  return mainWindow
+}
+
+export function registerIpcHandlers(): void {
+  ipcMain.handle('workspace:list', handleWorkspaceList)
+  ipcMain.handle('workspace:create', handleWorkspaceCreate)
+  ipcMain.handle('workspace:open', handleWorkspaceOpen)
+  ipcMain.handle('workspace:close', handleWorkspaceClose)
+  ipcMain.handle('workspace:selectFolder', handleWorkspaceSelectFolder)
+
+  ipcMain.handle('session:create', handleSessionCreate)
+  ipcMain.handle('session:write', handleSessionWrite)
+  ipcMain.handle('session:resize', handleSessionResize)
+  ipcMain.handle('session:kill', handleSessionKill)
+}
+
+const workspaces = new Map<string, Workspace>()
+
+async function handleWorkspaceList(): Promise<Workspace[]> {
+  return Array.from(workspaces.values())
+}
+
+async function handleWorkspaceCreate(_event: unknown, opts: { name: string; rootPath: string }): Promise<Workspace> {
+  const workspace: Workspace = {
+    id: randomUUID(),
+    name: opts.name,
+    rootPath: opts.rootPath,
+    createdAt: Date.now(),
+    lastActiveAt: Date.now()
+  }
+  workspaces.set(workspace.id, workspace)
+  return workspace
+}
+
+async function handleWorkspaceOpen(_event: unknown, id: string): Promise<Workspace | null> {
+  return workspaces.get(id) ?? null
+}
+
+async function handleWorkspaceClose(_event: unknown, id: string): Promise<void> {
+  workspaces.delete(id)
+}
+
+async function handleWorkspaceSelectFolder(): Promise<string | null> {
+  const win = getMainWindow()
+  if (!win) return null
+  return openFolderDialog(win)
+}
+
+async function handleSessionCreate(
+  _event: unknown,
+  opts: CreateSessionOptions
+): Promise<Session> {
+  const session = ptyManager.createSession({
+    command: opts.command,
+    cwd: opts.cwd,
+    agentType: opts.agentType ?? 'shell',
+    title: opts.title
+  })
+
+  const win = getMainWindow()
+  if (win) {
+    session.on('data', (data: string) => {
+      win.webContents.send('session:data', { sessionId: session.id, data })
+    })
+    session.on('exit', (exitCode: number) => {
+      win.webContents.send('session:exit', { sessionId: session.id, exitCode })
+    })
+  }
+
+  const sessionMeta: Session = {
+    id: session.id,
+    workspaceId: opts.workspaceId,
+    agentType: session.agentType,
+    command: session.command,
+    cwd: session.cwd,
+    title: session.title,
+    order: 0,
+    status: 'running',
+    createdAt: session.createdAt,
+    lastActiveAt: Date.now()
+  }
+
+  return sessionMeta
+}
+
+async function handleSessionWrite(_event: unknown, sessionId: string, data: string): Promise<void> {
+  ptyManager.write(sessionId, data)
+}
+
+async function handleSessionResize(_event: unknown, sessionId: string, cols: number, rows: number): Promise<void> {
+  ptyManager.resize(sessionId, cols, rows)
+}
+
+async function handleSessionKill(_event: unknown, sessionId: string): Promise<void> {
+  ptyManager.kill(sessionId)
+}
+
+export function openFolderDialog(parentWindow: BrowserWindow): Promise<string | null> {
+  return dialog
+    .showOpenDialog(parentWindow, {
+      properties: ['openDirectory']
+    })
+    .then((result) => {
+      if (result.canceled || result.filePaths.length === 0) return null
+      return result.filePaths[0]
+    })
+}
