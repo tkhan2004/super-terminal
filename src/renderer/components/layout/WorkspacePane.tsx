@@ -71,6 +71,17 @@ function removeLeaf(node: SplitPaneNode, targetSessionId: string): SplitPaneNode
   }
 }
 
+function collectSessionIds(node: SplitPaneNode, ids: string[] = []): string[] {
+  if (node.type === 'leaf') {
+    if (node.sessionId) ids.push(node.sessionId)
+  } else {
+    for (const child of node.children) {
+      collectSessionIds(child, ids)
+    }
+  }
+  return ids
+}
+
 interface TerminalTab {
   session: Session
   title: string
@@ -217,40 +228,67 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     [workspace.id, workspace.rootPath, setNewCommand, setTabLayouts]
   )
 
-  const closeTab = useCallback(
-    async (sessionId: string) => {
-      await window.api.session.kill(sessionId)
-      
-      let nextActiveId: string | null = null
-      setTabs((prev) => {
-        const filtered = prev.filter((t) => t.session.id !== sessionId)
-        if (activeTabId === sessionId) {
-          nextActiveId = filtered.length > 0 ? filtered[filtered.length - 1].session.id : null
+  const closeTabOrPane = useCallback(
+    async (id: string, isTabClose: boolean = false) => {
+      let sessionIdsToKill: string[] = []
+      if (isTabClose) {
+        const tree = tabLayouts[id]
+        if (tree) {
+          sessionIdsToKill = collectSessionIds(tree)
         } else {
-          nextActiveId = activeTabId
+          sessionIdsToKill = [id]
         }
-        return filtered
-      })
-      
-      if (activeTabId === sessionId) {
-        setActiveTabId(nextActiveId)
+      } else {
+        sessionIdsToKill = [id]
       }
+
+      await Promise.all(sessionIdsToKill.map(sid => window.api.session.kill(sid).catch(() => {})))
+
+      setTabs((prev) => prev.filter((t) => !sessionIdsToKill.includes(t.session.id)))
 
       setTabLayouts((prev) => {
         const copy = { ...prev }
-        for (const [key, tree] of Object.entries(copy)) {
-          const updated = removeLeaf(tree, sessionId)
-          if (updated) {
-            copy[key] = updated
-          } else {
-            delete copy[key]
+        if (isTabClose) {
+          delete copy[id]
+        } else {
+          for (const [key, tree] of Object.entries(copy)) {
+            const updated = removeLeaf(tree, id)
+            if (updated) {
+              copy[key] = updated
+            } else {
+              delete copy[key]
+            }
           }
+          delete copy[id]
         }
-        delete copy[sessionId]
         return copy
       })
+
+      setActiveTabId((currentActiveId) => {
+        if (!currentActiveId || sessionIdsToKill.includes(currentActiveId)) {
+          const remainingRootKeys = Object.keys(tabLayouts).filter(k => k !== (isTabClose ? id : ''))
+          if (remainingRootKeys.length > 0) {
+            const nextRootKey = remainingRootKeys[remainingRootKeys.length - 1]
+            const tree = tabLayouts[nextRootKey]
+            if (tree) {
+              const ids = collectSessionIds(tree)
+              return ids.length > 0 ? ids[0] : nextRootKey
+            }
+            return nextRootKey
+          }
+          return null
+        }
+        return currentActiveId
+      })
     },
-    [activeTabId, setTabLayouts]
+    [tabLayouts]
+  )
+
+  const closeTab = useCallback(
+    (sessionId: string) => {
+      closeTabOrPane(sessionId, false)
+    },
+    [closeTabOrPane]
   )
 
   const saveState = useCallback(async () => {
@@ -292,7 +330,15 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
         setActiveTabId(state.layout.activeSessionId)
         setLayoutTree(state.layout.splitPaneTree)
         setPinnedFiles(state.pinnedFiles ?? [])
-        setTabLayouts(state.layout.tabLayouts ?? {})
+        
+        let restoredTabLayouts = state.layout.tabLayouts ?? {}
+        if (Object.keys(restoredTabLayouts).length === 0 && state.sessions.length > 0) {
+          restoredTabLayouts = {}
+          for (const s of state.sessions) {
+            restoredTabLayouts[s.id] = { type: 'leaf', sessionId: s.id }
+          }
+        }
+        setTabLayouts(restoredTabLayouts)
         if (state.timeline) {
           useTimelineStore.getState().setWorkspaceEvents({
             ...useTimelineStore.getState().events,
@@ -471,30 +517,57 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
       {/* Subheader tabs row */}
       <div className="flex h-9 items-center justify-between border-b border-border bg-secondary/40 select-none">
         <div className="flex items-center h-full overflow-x-auto">
-          {tabs.map((tab) => (
-            <div
-              key={tab.session.id}
-              className={`group relative flex h-full cursor-pointer items-center gap-2 px-4 text-xs border-r border-border/50 transition-all ${
-                activeTabId === tab.session.id
-                  ? 'bg-background text-foreground font-medium border-t-2 border-t-primary/80'
-                  : 'text-muted-foreground hover:bg-secondary/20 hover:text-foreground'
-              }`}
-              onClick={() => setActiveTabId(tab.session.id)}
-              title={tab.session.cwd ?? tab.title}
-            >
-              <span className="truncate max-w-[140px]">{tab.title}</span>
-              <button
-                className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  closeTab(tab.session.id)
+          {Object.keys(tabLayouts).map((tabRootId) => {
+            const tabSession = tabs.find((t) => t.session.id === tabRootId)?.session
+            if (!tabSession) return null
+            const title = tabSession.title || tabSession.command
+
+            let isTabActive = activeTabId === tabRootId
+            if (activeTabId && tabLayouts[tabRootId]) {
+              isTabActive = JSON.stringify(tabLayouts[tabRootId]).includes(activeTabId)
+            }
+
+            return (
+              <div
+                key={tabRootId}
+                className={`group relative flex h-full cursor-pointer items-center gap-2 px-4 text-xs border-r border-border/50 transition-all ${
+                  isTabActive
+                    ? 'bg-background text-foreground font-medium border-t-2 border-t-primary/80'
+                    : 'text-muted-foreground hover:bg-secondary/20 hover:text-foreground'
+                }`}
+                onClick={() => {
+                  const tree = tabLayouts[tabRootId]
+                  if (tree) {
+                    const sessionIds = collectSessionIds(tree)
+                    if (sessionIds.length > 0) {
+                      if (activeTabId && sessionIds.includes(activeTabId)) {
+                        setActiveTabId(activeTabId)
+                      } else {
+                        setActiveTabId(sessionIds[0])
+                      }
+                    } else {
+                      setActiveTabId(tabRootId)
+                    }
+                  } else {
+                    setActiveTabId(tabRootId)
+                  }
                 }}
-                title="Close terminal tab"
+                title={tabSession.cwd ?? title}
               >
-                <X size={10} />
-              </button>
-            </div>
-          ))}
+                <span className="truncate max-w-[140px]">{title}</span>
+                <button
+                  className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    closeTabOrPane(tabRootId, true)
+                  }}
+                  title="Close terminal tab"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            )
+          })}
           <button
             className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border-r border-border/50"
             onClick={() => createTab('shell', 'shell')}
