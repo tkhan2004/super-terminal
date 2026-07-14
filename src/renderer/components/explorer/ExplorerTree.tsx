@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { DirEntry } from '@shared/types/ipc'
-import { ChevronRight, ChevronDown, File, Folder } from 'lucide-react'
+import { ChevronRight, ChevronDown, File, Folder, Pin } from 'lucide-react'
 
 interface ExplorerTreeProps {
   rootPath: string
   onFileDrag: (relativePath: string) => void
+  pinnedFiles: string[]
+  onPinFile: (path: string) => void
+  onUnpinFile: (path: string) => void
 }
 
 interface TreeNode {
@@ -14,7 +17,13 @@ interface TreeNode {
   loading: boolean
 }
 
-export function ExplorerTree({ rootPath, onFileDrag }: ExplorerTreeProps) {
+export function ExplorerTree({
+  rootPath,
+  onFileDrag,
+  pinnedFiles,
+  onPinFile,
+  onUnpinFile
+}: ExplorerTreeProps) {
   const [tree, setTree] = useState<TreeNode[]>([])
   const [watchId, setWatchId] = useState<string | null>(null)
   const dragRef = useRef<string | null>(null)
@@ -158,10 +167,13 @@ export function ExplorerTree({ rootPath, onFileDrag }: ExplorerTreeProps) {
 
   const renderNode = (node: TreeNode, depth: number): React.ReactNode => {
     const indent = depth * 16
+    const relativePath = node.entry.path.replace(rootPath, '').replace(/^[\\/]/, '')
+    const isPinned = pinnedFiles.includes(relativePath)
+
     return (
       <div key={node.entry.path}>
         <div
-          className={`flex cursor-pointer items-center gap-1 py-0.5 text-xs hover:bg-secondary/50 ${
+          className={`group flex cursor-pointer items-center justify-between gap-1 py-0.5 text-xs hover:bg-secondary/50 ${
             !node.entry.isDirectory ? 'cursor-grab' : ''
           }`}
           style={{ paddingLeft: indent + 8 }}
@@ -169,22 +181,42 @@ export function ExplorerTree({ rootPath, onFileDrag }: ExplorerTreeProps) {
           draggable={!node.entry.isDirectory}
           onDragStart={(e) => !node.entry.isDirectory && handleDragStart(e, node.entry)}
         >
-          {node.entry.isDirectory ? (
-            <>
-              {node.expanded ? (
-                <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
-              ) : (
-                <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
-              )}
-              <Folder size={14} className="shrink-0 text-blue-400" />
-            </>
-          ) : (
-            <>
-              <span className="w-3" />
-              <File size={14} className="shrink-0 text-muted-foreground" />
-            </>
+          <div className="flex items-center gap-1 min-w-0 flex-1">
+            {node.entry.isDirectory ? (
+              <>
+                {node.expanded ? (
+                  <ChevronDown size={12} className="shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
+                )}
+                <Folder size={14} className="shrink-0 text-blue-400" />
+              </>
+            ) : (
+              <>
+                <span className="w-3" />
+                <File size={14} className="shrink-0 text-muted-foreground" />
+              </>
+            )}
+            <span className="truncate">{node.entry.name}</span>
+          </div>
+          {!node.entry.isDirectory && (
+            <button
+              className={`p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all shrink-0 mr-1.5 ${
+                isPinned ? 'opacity-100 text-primary' : 'text-muted-foreground hover:text-foreground'
+              }`}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (isPinned) {
+                  onUnpinFile(relativePath)
+                } else {
+                  onPinFile(relativePath)
+                }
+              }}
+              title={isPinned ? 'Unpin File' : 'Pin File'}
+            >
+              <Pin size={10} className={isPinned ? 'fill-current' : ''} />
+            </button>
           )}
-          <span className="truncate">{node.entry.name}</span>
         </div>
         {node.expanded && node.children && (
           <div>{node.children.map((child) => renderNode(child, depth + 1))}</div>

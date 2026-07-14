@@ -35,8 +35,10 @@ const api = {
     saveState: (
       workspace: import('@shared/types/workspace').Workspace,
       sessions: import('@shared/types/session').Session[],
-      layout: import('@shared/types/workspace').WorkspaceLayout
-    ) => invoke('workspace:saveState', workspace, sessions, layout),
+      layout: import('@shared/types/workspace').WorkspaceLayout,
+      tasks?: import('@shared/types/task').Task[],
+      pinnedFiles?: string[]
+    ) => invoke('workspace:saveState', workspace, sessions, layout, tasks, pinnedFiles),
     restore: (id: string) => invoke('workspace:restore', id)
   },
 
@@ -87,6 +89,5 @@ if (process.contextIsolated) {
     console.error('Failed to expose API via contextBridge:', error)
   }
 } else {
-  // @ts-expect-error - window.api assignment in non-isolated context
-  window.api = api
+  (window as unknown as { api: typeof api }).api = api
 }

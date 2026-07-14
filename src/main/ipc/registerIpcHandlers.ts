@@ -2,6 +2,7 @@ import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { ptyManager } from '../pty/ptyManager'
 import type { Session, CreateSessionOptions } from '@shared/types/session'
 import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
+import type { Task } from '@shared/types/task'
 import { randomUUID } from 'node:crypto'
 import { WorkspaceRepositoryJson } from '../workspace/workspaceRepositoryJson'
 import { RestoreService } from '../workspace/restoreService'
@@ -84,15 +85,17 @@ async function handleWorkspaceSaveState(
   _event: unknown,
   workspace: Workspace,
   sessions: Session[],
-  layout: WorkspaceLayout
+  layout: WorkspaceLayout,
+  tasks?: Task[],
+  pinnedFiles?: string[]
 ): Promise<void> {
-  repo.saveWorkspaceState({ workspace, sessions, layout })
+  repo.saveWorkspaceState({ workspace, sessions, layout, tasks, pinnedFiles })
 }
 
 async function handleWorkspaceRestore(
   _event: unknown,
   workspaceId: string
-): Promise<{ sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace } | null> {
+): Promise<{ sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace; tasks?: Task[]; pinnedFiles?: string[] } | null> {
   const win = getMainWindow()
   if (!win) return null
   const result = restoreService.restoreWorkspace(workspaceId, win, true)

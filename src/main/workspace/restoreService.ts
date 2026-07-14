@@ -1,6 +1,7 @@
 import type { WorkspaceRepository } from './workspaceRepositoryJson'
 import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
 import type { Session } from '@shared/types/session'
+import type { Task } from '@shared/types/task'
 import { ptyManager } from '../pty/ptyManager'
 import { BrowserWindow } from 'electron'
 
@@ -8,6 +9,8 @@ export interface RestoreResult {
   workspace: Workspace
   sessions: Session[]
   layout: WorkspaceLayout
+  tasks?: Task[]
+  pinnedFiles?: string[]
 }
 
 export class RestoreService {
@@ -62,19 +65,25 @@ export class RestoreService {
     return {
       workspace: state.workspace,
       sessions: restoredSessions,
-      layout
+      layout,
+      tasks: state.tasks,
+      pinnedFiles: state.pinnedFiles
     }
   }
 
   saveWorkspaceState(
     workspace: Workspace,
     sessions: Session[],
-    layout: WorkspaceLayout
+    layout: WorkspaceLayout,
+    tasks?: Task[],
+    pinnedFiles?: string[]
   ): void {
     this.repo.saveWorkspaceState({
       workspace,
       sessions,
-      layout
+      layout,
+      tasks,
+      pinnedFiles
     })
   }
 

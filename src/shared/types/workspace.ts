@@ -17,8 +17,12 @@ export type SplitPaneNode =
   | { type: 'leaf'; sessionId: string }
   | { type: 'split'; direction: 'horizontal' | 'vertical'; sizes: number[]; children: SplitPaneNode[] }
 
+import type { Task } from './task'
+
 export interface WorkspaceState {
   workspace: Workspace
   sessions: import('./session').Session[]
   layout: WorkspaceLayout
+  tasks?: Task[]
+  pinnedFiles?: string[]
 }

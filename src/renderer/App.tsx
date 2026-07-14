@@ -5,6 +5,8 @@ import { ThreeColumnLayout } from './components/layout/ThreeColumnLayout'
 import { AgentManagerPanel } from './components/agentManager/AgentManagerPanel'
 import { ExplorerTree } from './components/explorer/ExplorerTree'
 import { TerminalSplitView } from './components/terminal/TerminalSplitView'
+import { ContextPanel } from './components/explorer/ContextPanel'
+import { useTaskStore } from './stores/taskStore'
 
 function splitLeaf(
   node: SplitPaneNode,
@@ -82,6 +84,68 @@ export default function App() {
   const [workspacesList, setWorkspacesList] = useState<Workspace[]>([])
   const [layoutTree, setLayoutTree] = useState<SplitPaneNode | null>(null)
 
+  const {
+    tasks,
+    setTasks,
+    addTask,
+    removeTask,
+    updateTaskName,
+    assignSessionToTask,
+    unassignSessionFromTask
+  } = useTaskStore()
+  const [pinnedFiles, setPinnedFiles] = useState<string[]>([])
+  const [sessionReferences, setSessionReferences] = useState<Record<string, string[]>>({})
+
+  const handlePinFile = useCallback((path: string) => {
+    setPinnedFiles((prev) => {
+      if (prev.includes(path)) return prev
+      return [...prev, path]
+    })
+  }, [])
+
+  const handleUnpinFile = useCallback((path: string) => {
+    setPinnedFiles((prev) => prev.filter((p) => p !== path))
+  }, [])
+
+  const handleInsertReference = useCallback((path: string) => {
+    if (activeTabId) {
+      window.api.session.write(activeTabId, `@${path}`)
+      setSessionReferences((prev) => {
+        const current = prev[activeTabId] ?? []
+        if (!current.includes(path)) {
+          return { ...prev, [activeTabId]: [...current, path] }
+        }
+        return prev
+      })
+    }
+  }, [activeTabId])
+
+  const handleAddTask = useCallback((name: string) => {
+    addTask({
+      id: crypto.randomUUID(),
+      workspaceId: workspace!.id,
+      name,
+      sessionIds: [],
+      createdAt: Date.now()
+    })
+  }, [workspace, addTask])
+
+  const handleRenameTask = useCallback((id: string, name: string) => {
+    updateTaskName(id, name)
+  }, [updateTaskName])
+
+  const handleRemoveTask = useCallback((id: string) => {
+    removeTask(id)
+  }, [removeTask])
+
+  const handleAssignSession = useCallback((sessionId: string, taskId: string) => {
+    if (taskId === '') {
+      unassignSessionFromTask(sessionId)
+    } else {
+      assignSessionToTask(taskId, sessionId)
+    }
+  }, [assignSessionToTask, unassignSessionFromTask])
+
   const loadWorkspacesList = useCallback(async () => {
     const list = await window.api.workspace.list()
     setWorkspacesList(list)
@@ -94,13 +158,17 @@ export default function App() {
       setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
       setActiveTabId(state.layout.activeSessionId)
       setLayoutTree(state.layout.splitPaneTree)
+      setTasks(state.tasks ?? [])
+      setPinnedFiles(state.pinnedFiles ?? [])
     } else {
       setWorkspace(ws)
       setTabs([])
       setActiveTabId(null)
       setLayoutTree(null)
+      setTasks([])
+      setPinnedFiles([])
     }
-  }, [])
+  }, [setTasks])
 
   const selectFolder = useCallback(async () => {
     const folderPath = await window.api.workspace.selectFolder()
@@ -117,8 +185,10 @@ export default function App() {
       setTabs([])
       setActiveTabId(null)
       setLayoutTree(null)
+      setTasks([])
+      setPinnedFiles([])
     }
-  }, [openWorkspace])
+  }, [openWorkspace, setTasks])
 
   const createTab = useCallback(
     async (command: string, agentType: AgentType) => {
@@ -186,9 +256,11 @@ export default function App() {
     await window.api.workspace.saveState(
       workspace,
       tabs.map((t) => t.session),
-      layout
+      layout,
+      tasks,
+      pinnedFiles
     )
-  }, [workspace, tabs, activeTabId, layoutTree])
+  }, [workspace, tabs, activeTabId, layoutTree, tasks, pinnedFiles])
 
   const closeWorkspace = useCallback(async () => {
     if (!workspace) return
@@ -200,8 +272,11 @@ export default function App() {
     setTabs([])
     setActiveTabId(null)
     setLayoutTree(null)
+    setTasks([])
+    setPinnedFiles([])
+    setSessionReferences({})
     loadWorkspacesList()
-  }, [workspace, tabs, saveState, loadWorkspacesList])
+  }, [workspace, tabs, saveState, loadWorkspacesList, setTasks])
 
   const handleSplit = useCallback(
     async (direction: 'horizontal' | 'vertical') => {
@@ -250,6 +325,16 @@ export default function App() {
       const text = e.dataTransfer.getData('text/plain')
       if (text && activeTabId) {
         window.api.session.write(activeTabId, text)
+        if (text.startsWith('@')) {
+          const filePath = text.substring(1)
+          setSessionReferences((prev) => {
+            const current = prev[activeTabId] ?? []
+            if (!current.includes(filePath)) {
+              return { ...prev, [activeTabId]: [...current, filePath] }
+            }
+            return prev
+          })
+        }
       }
     },
     [activeTabId]
@@ -398,7 +483,29 @@ export default function App() {
         <ThreeColumnLayout
           leftVisible={leftVisible}
           rightVisible={rightVisible}
-          left={<ExplorerTree rootPath={workspace.rootPath} onFileDrag={() => {}} />}
+          left={
+            <div className="flex h-full flex-col divide-y divide-border">
+              <div className="flex-grow overflow-hidden">
+                <ExplorerTree
+                  rootPath={workspace.rootPath}
+                  onFileDrag={() => {}}
+                  pinnedFiles={pinnedFiles}
+                  onPinFile={handlePinFile}
+                  onUnpinFile={handleUnpinFile}
+                />
+              </div>
+              <div className="h-64 flex-shrink-0 overflow-hidden">
+                <ContextPanel
+                  pinnedFiles={pinnedFiles}
+                  activeSessionId={activeTabId}
+                  sessionReferences={activeTabId ? (sessionReferences[activeTabId] ?? []) : []}
+                  onPinFile={handlePinFile}
+                  onUnpinFile={handleUnpinFile}
+                  onInsertReference={handleInsertReference}
+                />
+              </div>
+            </div>
+          }
           center={
             <div
               ref={terminalAreaRef}
@@ -427,6 +534,11 @@ export default function App() {
               onSelectSession={(id) => setActiveTabId(id)}
               onCloseSession={(id) => closeTab(id)}
               onCreateSession={() => setShowNewTabDialog(true)}
+              tasks={tasks}
+              onAddTask={handleAddTask}
+              onRenameTask={handleRenameTask}
+              onRemoveTask={handleRemoveTask}
+              onAssignSession={handleAssignSession}
             />
           }
         />
