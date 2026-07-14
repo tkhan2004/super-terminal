@@ -61,17 +61,37 @@ export class PtySession extends EventEmitter {
   }
 
   private resolveShell(command: string): string {
-    if (command && command !== 'shell') {
-      return command
+    if (process.platform === 'win32') {
+      const comspec = process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe'
+      const powershell = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+
+      if (!command || command === 'shell') {
+        return powershell
+      }
+
+      // For agent commands, wrap via cmd.exe so PATH resolution works
+      return comspec
     }
-    return process.platform === 'win32' ? 'powershell.exe' : process.env.SHELL || 'bash'
+
+    // Unix
+    if (!command || command === 'shell') {
+      return process.env.SHELL || '/bin/bash'
+    }
+    return process.env.SHELL || '/bin/bash'
   }
 
   private resolveShellArgs(command: string): string[] {
     if (!command || command === 'shell') {
       return []
     }
-    return []
+
+    if (process.platform === 'win32') {
+      // Wrap agent commands: cmd /c <command>
+      return ['/c', command]
+    }
+
+    // Unix: run the command via login shell
+    return ['-c', command]
   }
 
   private handleData(data: string): void {
