@@ -87,7 +87,13 @@ function getFilesRecursive(dir: string, baseDir: string, filesList: string[] = [
         entry === 'out' ||
         entry === 'build' ||
         entry === '.next' ||
-        entry === '.git'
+        entry === '.git' ||
+        entry === '.venv' ||
+        entry === 'venv' ||
+        entry === 'env' ||
+        entry === '.pytest_cache' ||
+        entry === '.ruff_cache' ||
+        entry === '.mypy_cache'
       ) {
         continue
       }
