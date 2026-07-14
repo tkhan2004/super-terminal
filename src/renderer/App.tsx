@@ -1,10 +1,69 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
+import type { Workspace, WorkspaceLayout, SplitPaneNode } from '@shared/types/workspace'
 import type { Session, AgentType } from '@shared/types/session'
-import { TerminalPane } from './components/terminal/TerminalPane'
 import { ThreeColumnLayout } from './components/layout/ThreeColumnLayout'
 import { AgentManagerPanel } from './components/agentManager/AgentManagerPanel'
 import { ExplorerTree } from './components/explorer/ExplorerTree'
+import { TerminalSplitView } from './components/terminal/TerminalSplitView'
+
+function splitLeaf(
+  node: SplitPaneNode,
+  targetSessionId: string,
+  newSessionId: string,
+  direction: 'horizontal' | 'vertical'
+): SplitPaneNode {
+  if (node.type === 'leaf') {
+    if (node.sessionId === targetSessionId) {
+      return {
+        type: 'split',
+        direction,
+        sizes: [50, 50],
+        children: [
+          { type: 'leaf', sessionId: targetSessionId },
+          { type: 'leaf', sessionId: newSessionId }
+        ]
+      }
+    }
+    return node
+  }
+
+  return {
+    ...node,
+    children: node.children.map((child) =>
+      splitLeaf(child, targetSessionId, newSessionId, direction)
+    )
+  }
+}
+
+function removeLeaf(node: SplitPaneNode, targetSessionId: string): SplitPaneNode | null {
+  if (node.type === 'leaf') {
+    if (node.sessionId === targetSessionId) {
+      return null
+    }
+    return node
+  }
+
+  const newChildren = node.children
+    .map((child) => removeLeaf(child, targetSessionId))
+    .filter((child): child is SplitPaneNode => child !== null)
+
+  if (newChildren.length === 0) {
+    return null
+  }
+  if (newChildren.length === 1) {
+    return newChildren[0]
+  }
+
+  const newSizes = newChildren.map((_, i) => node.sizes[i] ?? 100 / newChildren.length)
+  const sum = newSizes.reduce((a, b) => a + b, 0)
+  const normalizedSizes = newSizes.map((s) => (s / sum) * 100)
+
+  return {
+    ...node,
+    sizes: normalizedSizes,
+    children: newChildren
+  }
+}
 
 interface TerminalTab {
   session: Session
@@ -21,6 +80,7 @@ export default function App() {
   const [rightVisible, setRightVisible] = useState(true)
   const terminalAreaRef = useRef<HTMLDivElement>(null)
   const [workspacesList, setWorkspacesList] = useState<Workspace[]>([])
+  const [layoutTree, setLayoutTree] = useState<SplitPaneNode | null>(null)
 
   const loadWorkspacesList = useCallback(async () => {
     const list = await window.api.workspace.list()
@@ -33,10 +93,12 @@ export default function App() {
       setWorkspace(state.workspace)
       setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
       setActiveTabId(state.layout.activeSessionId)
+      setLayoutTree(state.layout.splitPaneTree)
     } else {
       setWorkspace(ws)
       setTabs([])
       setActiveTabId(null)
+      setLayoutTree(null)
     }
   }, [])
 
@@ -54,6 +116,7 @@ export default function App() {
       setWorkspace(ws)
       setTabs([])
       setActiveTabId(null)
+      setLayoutTree(null)
     }
   }, [openWorkspace])
 
@@ -72,6 +135,12 @@ export default function App() {
       const tab: TerminalTab = { session, title: session.title }
       setTabs((prev) => [...prev, tab])
       setActiveTabId(session.id)
+      setLayoutTree((prev) => {
+        if (!prev || (prev.type === 'leaf' && !prev.sessionId)) {
+          return { type: 'leaf', sessionId: session.id }
+        }
+        return prev
+      })
       setShowNewTabDialog(false)
     },
     [workspace]
@@ -80,12 +149,25 @@ export default function App() {
   const closeTab = useCallback(
     async (sessionId: string) => {
       await window.api.session.kill(sessionId)
+      
+      let nextActiveId: string | null = null
       setTabs((prev) => {
         const filtered = prev.filter((t) => t.session.id !== sessionId)
         if (activeTabId === sessionId) {
-          setActiveTabId(filtered.length > 0 ? filtered[filtered.length - 1].session.id : null)
+          nextActiveId = filtered.length > 0 ? filtered[filtered.length - 1].session.id : null
+        } else {
+          nextActiveId = activeTabId
         }
         return filtered
+      })
+      
+      if (activeTabId === sessionId) {
+        setActiveTabId(nextActiveId)
+      }
+
+      setLayoutTree((prev) => {
+        if (!prev) return null
+        return removeLeaf(prev, sessionId)
       })
     },
     [activeTabId]
@@ -97,7 +179,7 @@ export default function App() {
     const layout: WorkspaceLayout = {
       workspaceId: workspace.id,
       windowBounds: { x: 100, y: 100, width: 1280, height: 800 },
-      splitPaneTree: { type: 'leaf', sessionId: activeTabId ?? '' },
+      splitPaneTree: layoutTree ?? { type: 'leaf', sessionId: activeTabId ?? '' },
       activeSessionId: activeTabId
     }
 
@@ -106,7 +188,7 @@ export default function App() {
       tabs.map((t) => t.session),
       layout
     )
-  }, [workspace, tabs, activeTabId])
+  }, [workspace, tabs, activeTabId, layoutTree])
 
   const closeWorkspace = useCallback(async () => {
     if (!workspace) return
@@ -117,8 +199,36 @@ export default function App() {
     setWorkspace(null)
     setTabs([])
     setActiveTabId(null)
+    setLayoutTree(null)
     loadWorkspacesList()
   }, [workspace, tabs, saveState, loadWorkspacesList])
+
+  const handleSplit = useCallback(
+    async (direction: 'horizontal' | 'vertical') => {
+      if (!workspace || !activeTabId) return
+
+      const newSession = await window.api.session.create({
+        workspaceId: workspace.id,
+        command: 'shell',
+        cwd: workspace.rootPath,
+        agentType: 'shell',
+        title: 'Terminal'
+      })
+
+      const tab: TerminalTab = { session: newSession, title: newSession.title }
+      setTabs((prev) => [...prev, tab])
+      
+      setLayoutTree((prev) => {
+        if (!prev) {
+          return { type: 'leaf', sessionId: newSession.id }
+        }
+        return splitLeaf(prev, activeTabId, newSession.id, direction)
+      })
+
+      setActiveTabId(newSession.id)
+    },
+    [workspace, activeTabId]
+  )
 
   useEffect(() => {
     const handler = (): void => {
@@ -232,35 +342,56 @@ export default function App() {
         </div>
       </header>
 
-      <div className="flex h-10 items-center gap-1 border-b border-border bg-card px-2">
-        {tabs.map((tab) => (
-          <div
-            key={tab.session.id}
-            className={`group flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-xs ${
-              activeTabId === tab.session.id
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-            }`}
-            onClick={() => setActiveTabId(tab.session.id)}
-          >
-            <span>{tab.title}</span>
-            <button
-              className="opacity-0 group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation()
-                closeTab(tab.session.id)
-              }}
+      <div className="flex h-10 items-center justify-between border-b border-border bg-card px-2">
+        <div className="flex items-center gap-1">
+          {tabs.map((tab) => (
+            <div
+              key={tab.session.id}
+              className={`group flex cursor-pointer items-center gap-2 rounded px-3 py-1.5 text-xs ${
+                activeTabId === tab.session.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              }`}
+              onClick={() => setActiveTabId(tab.session.id)}
             >
-              ×
+              <span>{tab.title}</span>
+              <button
+                className="opacity-0 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeTab(tab.session.id)
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <button
+            className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-secondary"
+            onClick={() => setShowNewTabDialog(true)}
+          >
+            +
+          </button>
+        </div>
+
+        {activeTabId && (
+          <div className="flex items-center gap-2 pr-2">
+            <button
+              className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              onClick={() => handleSplit('vertical')}
+              title="Split Vertically"
+            >
+              Split Vertical
+            </button>
+            <button
+              className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              onClick={() => handleSplit('horizontal')}
+              title="Split Horizontally"
+            >
+              Split Horizontal
             </button>
           </div>
-        ))}
-        <button
-          className="rounded px-2 py-1 text-sm text-muted-foreground hover:bg-secondary"
-          onClick={() => setShowNewTabDialog(true)}
-        >
-          +
-        </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-hidden">
@@ -275,11 +406,12 @@ export default function App() {
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
-              {activeTabId ? (
-                <TerminalPane
-                  sessionId={activeTabId}
-                  isActive={true}
-                  onActivate={() => {}}
+              {layoutTree ? (
+                <TerminalSplitView
+                  node={layoutTree}
+                  activeSessionId={activeTabId}
+                  onActivateSession={(id) => setActiveTabId(id)}
+                  onResizePane={(updatedNode) => setLayoutTree(updatedNode)}
                 />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-muted-foreground">

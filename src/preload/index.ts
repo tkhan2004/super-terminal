@@ -87,6 +87,6 @@ if (process.contextIsolated) {
     console.error('Failed to expose API via contextBridge:', error)
   }
 } else {
-  // @ts-ignore - window.api assignment in non-isolated context
+  // @ts-expect-error - window.api assignment in non-isolated context
   window.api = api
 }

@@ -60,7 +60,7 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
       terminalRef.current = null
       fitAddonRef.current = null
     }
-  }, [sessionId])
+  }, [sessionId, onResize, onData])
 
   const write = useCallback((data: string) => {
     terminalRef.current?.write(data)
