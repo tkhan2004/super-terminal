@@ -396,14 +396,19 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     }
   }, [workspace, tabs.length, createTab, showNewTabDialog])
 
+  const tabsRef = useRef(tabs)
+  useEffect(() => {
+    tabsRef.current = tabs
+  }, [tabs])
+
   // Cleanup on unmount (kills sessions when workspace tab is closed)
   useEffect(() => {
     return () => {
-      tabs.forEach((tab) => {
-        window.api.session.kill(tab.session.id)
+      tabsRef.current.forEach((tab) => {
+        window.api.session.kill(tab.session.id).catch(() => {})
       })
     }
-  }, [tabs])
+  }, [])
 
   // Auto-save logic
   useEffect(() => {
