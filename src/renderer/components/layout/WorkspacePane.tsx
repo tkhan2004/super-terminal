@@ -102,7 +102,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   const [leftVisible, setLeftVisible] = useState(true)
   const [rightVisible, setRightVisible] = useState(true)
   const terminalAreaRef = useRef<HTMLDivElement>(null)
-  const [layoutTree, setLayoutTree] = useState<SplitPaneNode | null>(null)
+
 
   const {
     addTask,
@@ -117,6 +117,15 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   const [pinnedFiles, setPinnedFiles] = useState<string[]>([])
   const [sessionReferences, setSessionReferences] = useState<Record<string, string[]>>({})
   const [tabLayouts, setTabLayouts] = useState<Record<string, SplitPaneNode>>({})
+
+  const activeTabRootId = activeTabId ? (() => {
+    for (const [key, tree] of Object.entries(tabLayouts)) {
+      if (JSON.stringify(tree).includes(activeTabId)) {
+        return key
+      }
+    }
+    return activeTabId
+  })() : null
 
   const handlePinFile = useCallback((path: string) => {
     setPinnedFiles((prev) => {
@@ -294,10 +303,11 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   const saveState = useCallback(async () => {
     if (tabs.length === 0) return
 
+    const activeLayout = activeTabRootId ? tabLayouts[activeTabRootId] : null
     const layout: WorkspaceLayout = {
       workspaceId: workspace.id,
       windowBounds: { x: 100, y: 100, width: 1280, height: 800 },
-      splitPaneTree: layoutTree ?? { type: 'leaf', sessionId: activeTabId ?? '' },
+      splitPaneTree: activeLayout ?? { type: 'leaf', sessionId: activeTabId ?? '' },
       activeSessionId: activeTabId,
       tabLayouts
     }
@@ -311,7 +321,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
       pinnedFiles,
       timeline
     )
-  }, [workspace, tabs, activeTabId, layoutTree, tasks, pinnedFiles, tabLayouts])
+  }, [workspace, tabs, activeTabId, activeTabRootId, tasks, pinnedFiles, tabLayouts])
 
   // Register saveState ref to parent App
   useEffect(() => {
@@ -328,7 +338,6 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
       if (state) {
         setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
         setActiveTabId(state.layout.activeSessionId)
-        setLayoutTree(state.layout.splitPaneTree)
         setPinnedFiles(state.pinnedFiles ?? [])
         
         let restoredTabLayouts = state.layout.tabLayouts ?? {}
@@ -348,7 +357,6 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
       } else {
         setTabs([])
         setActiveTabId(null)
-        setLayoutTree(null)
         setPinnedFiles([])
         setTabLayouts({})
       }
@@ -358,27 +366,26 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
 
   const spawningRef = useRef(false)
 
+  // Keyboard shortcut listener
   useEffect(() => {
-    if (activeTabId) {
-      // Find the tab root layout that contains activeTabId
-      let foundTabKey = activeTabId
-      for (const [key, tree] of Object.entries(tabLayouts)) {
-        if (JSON.stringify(tree).includes(activeTabId)) {
-          foundTabKey = key
-          break
-        }
+    if (!isActive) return undefined
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault()
+        setShowCommandPalette((v) => !v)
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+        e.preventDefault()
+        handleSplit('vertical')
+      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault()
+        handleSplit('horizontal')
       }
-      const activeLayout = tabLayouts[foundTabKey] ?? { type: 'leaf', sessionId: activeTabId }
-      setLayoutTree((prev) => {
-        if (JSON.stringify(prev) !== JSON.stringify(activeLayout)) {
-          return activeLayout
-        }
-        return prev
-      })
-    } else {
-      setLayoutTree(null)
     }
-  }, [activeTabId, tabLayouts])
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isActive, activeTabId, tabLayouts])
 
   useEffect(() => {
     if (workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
@@ -407,7 +414,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
       return () => clearTimeout(timer)
     }
     return undefined
-  }, [tabs, activeTabId, layoutTree, pinnedFiles, tabLayouts, saveState])
+  }, [tabs, activeTabId, pinnedFiles, tabLayouts, saveState])
 
   // Keyboard shortcut listener
   useEffect(() => {
@@ -428,7 +435,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, activeTabId, layoutTree, tabLayouts])
+  }, [isActive, activeTabId, tabLayouts])
 
   const handleSplit = useCallback(
     (direction: 'horizontal' | 'vertical') => {
@@ -480,13 +487,6 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
             }
 
             return copy
-          })
-
-          setLayoutTree((prev) => {
-            if (!prev) {
-              return { type: 'leaf', sessionId: session.id }
-            }
-            return splitLeaf(prev, activeTabId, session.id, direction)
           })
 
           setActiveTabId(session.id)
@@ -635,33 +635,32 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
               >
-                {layoutTree ? (
-                  <TerminalSplitView
-                    node={layoutTree}
-                    activeSessionId={activeTabId}
-                    onActivateSession={(id) => setActiveTabId(id)}
-                    onResizePane={(updatedNode) => {
-                      setLayoutTree(updatedNode)
-                      if (activeTabId) {
-                        setTabLayouts((prev) => {
-                          const copy = { ...prev }
-                          let foundTabKey = activeTabId
-                          for (const [key, tree] of Object.entries(copy)) {
-                            if (JSON.stringify(tree).includes(activeTabId)) {
-                              foundTabKey = key
-                              break
-                            }
-                          }
-                          copy[foundTabKey] = updatedNode
-                          return copy
-                        })
-                      }
-                    }}
-                  />
-                ) : (
+                {Object.keys(tabLayouts).length === 0 ? (
                   <div className="flex h-full items-center justify-center text-sm text-muted-foreground bg-background">
                     No active terminal. Click + to create one.
                   </div>
+                ) : (
+                  Object.entries(tabLayouts).map(([tabRootId, tree]) => {
+                    const isTabActive = activeTabRootId === tabRootId
+                    return (
+                      <div
+                        key={tabRootId}
+                        className={`h-full w-full ${isTabActive ? '' : 'hidden'}`}
+                      >
+                        <TerminalSplitView
+                          node={tree}
+                          activeSessionId={activeTabId}
+                          onActivateSession={(id) => setActiveTabId(id)}
+                          onResizePane={(updatedNode) => {
+                            setTabLayouts((prev) => ({
+                              ...prev,
+                              [tabRootId]: updatedNode
+                            }))
+                          }}
+                        />
+                      </div>
+                    )
+                  })
                 )}
               </div>
               <PromptBuilderBar
