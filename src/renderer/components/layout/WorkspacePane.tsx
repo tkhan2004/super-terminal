@@ -310,6 +310,39 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     restoreWorkspace()
   }, [workspace.id])
 
+  const spawningRef = useRef(false)
+
+  useEffect(() => {
+    if (activeTabId) {
+      // Find the tab root layout that contains activeTabId
+      let foundTabKey = activeTabId
+      for (const [key, tree] of Object.entries(tabLayouts)) {
+        if (JSON.stringify(tree).includes(activeTabId)) {
+          foundTabKey = key
+          break
+        }
+      }
+      const activeLayout = tabLayouts[foundTabKey] ?? { type: 'leaf', sessionId: activeTabId }
+      setLayoutTree((prev) => {
+        if (JSON.stringify(prev) !== JSON.stringify(activeLayout)) {
+          return activeLayout
+        }
+        return prev
+      })
+    } else {
+      setLayoutTree(null)
+    }
+  }, [activeTabId, tabLayouts])
+
+  useEffect(() => {
+    if (workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
+      spawningRef.current = true
+      createTab('shell', 'shell').finally(() => {
+        spawningRef.current = false
+      })
+    }
+  }, [workspace, tabs.length, createTab, showNewTabDialog])
+
   // Cleanup on unmount (kills sessions when workspace tab is closed)
   useEffect(() => {
     return () => {
