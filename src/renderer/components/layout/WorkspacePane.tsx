@@ -117,6 +117,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   const [pinnedFiles, setPinnedFiles] = useState<string[]>([])
   const [sessionReferences, setSessionReferences] = useState<Record<string, string[]>>({})
   const [tabLayouts, setTabLayouts] = useState<Record<string, SplitPaneNode>>({})
+  const [isRestored, setIsRestored] = useState(false)
 
   const activeTabRootId = activeTabId ? (() => {
     for (const [key, tree] of Object.entries(tabLayouts)) {
@@ -334,31 +335,37 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   // Restore workspace state on mount
   useEffect(() => {
     const restoreWorkspace = async () => {
-      const state = await window.api.workspace.restore(workspace.id)
-      if (state) {
-        setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
-        setActiveTabId(state.layout.activeSessionId)
-        setPinnedFiles(state.pinnedFiles ?? [])
-        
-        let restoredTabLayouts = state.layout.tabLayouts ?? {}
-        if (Object.keys(restoredTabLayouts).length === 0 && state.sessions.length > 0) {
-          restoredTabLayouts = {}
-          for (const s of state.sessions) {
-            restoredTabLayouts[s.id] = { type: 'leaf', sessionId: s.id }
+      try {
+        const state = await window.api.workspace.restore(workspace.id)
+        if (state) {
+          setTabs(state.sessions.map((s) => ({ session: s, title: s.title })))
+          setActiveTabId(state.layout.activeSessionId)
+          setPinnedFiles(state.pinnedFiles ?? [])
+          
+          let restoredTabLayouts = state.layout.tabLayouts ?? {}
+          if (Object.keys(restoredTabLayouts).length === 0 && state.sessions.length > 0) {
+            restoredTabLayouts = {}
+            for (const s of state.sessions) {
+              restoredTabLayouts[s.id] = { type: 'leaf', sessionId: s.id }
+            }
           }
+          setTabLayouts(restoredTabLayouts)
+          if (state.timeline) {
+            useTimelineStore.getState().setWorkspaceEvents({
+              ...useTimelineStore.getState().events,
+              ...state.timeline
+            })
+          }
+        } else {
+          setTabs([])
+          setActiveTabId(null)
+          setPinnedFiles([])
+          setTabLayouts({})
         }
-        setTabLayouts(restoredTabLayouts)
-        if (state.timeline) {
-          useTimelineStore.getState().setWorkspaceEvents({
-            ...useTimelineStore.getState().events,
-            ...state.timeline
-          })
-        }
-      } else {
-        setTabs([])
-        setActiveTabId(null)
-        setPinnedFiles([])
-        setTabLayouts({})
+      } catch (err) {
+        console.error('Failed to restore workspace:', err)
+      } finally {
+        setIsRestored(true)
       }
     }
     restoreWorkspace()
@@ -388,13 +395,13 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   }, [isActive, activeTabId, tabLayouts])
 
   useEffect(() => {
-    if (workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
+    if (isRestored && workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
       spawningRef.current = true
       createTab('shell', 'shell').finally(() => {
         spawningRef.current = false
       })
     }
-  }, [workspace, tabs.length, createTab, showNewTabDialog])
+  }, [isRestored, workspace, tabs.length, createTab, showNewTabDialog])
 
   const tabsRef = useRef(tabs)
   useEffect(() => {
