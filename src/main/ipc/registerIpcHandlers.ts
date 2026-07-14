@@ -5,6 +5,9 @@ import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
 import type { Task } from '@shared/types/task'
 import { randomUUID } from 'node:crypto'
 import { execFile } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { WorkspaceRepositoryJson } from '../workspace/workspaceRepositoryJson'
 import { RestoreService } from '../workspace/restoreService'
 import type { GitStatus, GitLogEntry } from '@shared/types/ipc'
@@ -43,6 +46,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:checkout', handleGitCheckout)
   ipcMain.handle('git:showFiles', handleGitShowFiles)
   ipcMain.handle('git:commitDiff', handleGitCommitDiff)
+  ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -376,4 +380,23 @@ async function handleGitCommitDiff(
   } catch (err: unknown) {
     return `Error getting commit diff: ${err instanceof Error ? err.message : String(err)}`
   }
+}
+
+async function handleClaudeGetCredentials(): Promise<{ isLoggedIn: boolean; accessToken?: string; subscriptionType?: string }> {
+  try {
+    const credPath = join(homedir(), '.claude', '.credentials.json')
+    if (existsSync(credPath)) {
+      const data = JSON.parse(readFileSync(credPath, 'utf8'))
+      if (data && data.claudeAiOauth) {
+        return {
+          isLoggedIn: true,
+          accessToken: data.claudeAiOauth.accessToken,
+          subscriptionType: data.claudeAiOauth.subscriptionType
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Main] Error reading Claude credentials:', err)
+  }
+  return { isLoggedIn: false }
 }

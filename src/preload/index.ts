@@ -92,6 +92,9 @@ const api = {
     showFiles: (cwd: string, commitHash: string) => invoke('git:showFiles', cwd, commitHash),
     commitDiff: (cwd: string, commitHash: string, filePath: string) =>
       invoke('git:commitDiff', cwd, commitHash, filePath)
+  },
+  claude: {
+    getCredentials: () => invoke('claude:getCredentials')
   }
 }
 

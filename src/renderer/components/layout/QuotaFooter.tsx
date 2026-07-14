@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSettingsStore, CliQuota } from '../../stores/settingsStore'
 import { Shield, Key, Database, RefreshCw, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 
@@ -11,6 +11,28 @@ export function QuotaFooter() {
   const [used, setUsed] = useState(0)
   const [limit, setLimit] = useState(0)
   const [apiKey, setApiKey] = useState('')
+
+  useEffect(() => {
+    const checkClaudeCreds = async () => {
+      try {
+        const creds = await window.api.claude.getCredentials()
+        if (creds && creds.isLoggedIn) {
+          updateQuota('claude', {
+            isLoggedIn: true,
+            apiKey: creds.accessToken ? creds.accessToken.substring(0, 18) + '...' : 'Authorized Oauth',
+          })
+        } else {
+          updateQuota('claude', {
+            isLoggedIn: false,
+            apiKey: ''
+          })
+        }
+      } catch (err) {
+        console.error('Failed to check Claude credentials:', err)
+      }
+    }
+    checkClaudeCreds()
+  }, [updateQuota])
 
   const openSettings = (key: string, quota: CliQuota) => {
     setActiveCli(key)
