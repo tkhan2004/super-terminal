@@ -31,7 +31,7 @@ async function createWindow(): Promise<void> {
     backgroundColor: '#0a0a0a',
     title: 'AI Terminal Studio',
     webPreferences: {
-      preload: resolve(__dirname, '../preload/index.mjs'),
+      preload: resolve(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true
