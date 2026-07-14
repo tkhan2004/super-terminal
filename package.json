@@ -67,6 +67,7 @@
       "output": "release",
       "buildResources": "build"
     },
+    "npmRebuild": false,
     "files": [
       "out/**/*",
       "!out/**/*.map"
