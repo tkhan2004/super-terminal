@@ -10,6 +10,10 @@ export interface CliQuota {
   limit: number
   unit: string // 'Tokens' | 'Chars' | 'USD'
   apiKey: string
+  sessionUsed?: number
+  sessionReset?: string
+  weekUsed?: number
+  weekReset?: string
 }
 
 interface SettingsState {

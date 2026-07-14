@@ -94,7 +94,8 @@ const api = {
       invoke('git:commitDiff', cwd, commitHash, filePath)
   },
   claude: {
-    getCredentials: () => invoke('claude:getCredentials')
+    getCredentials: () => invoke('claude:getCredentials'),
+    getQuota: () => invoke('claude:getQuota')
   }
 }
 

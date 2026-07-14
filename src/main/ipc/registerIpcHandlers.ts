@@ -4,7 +4,7 @@ import type { Session, CreateSessionOptions, TimelineEvent } from '@shared/types
 import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
 import type { Task } from '@shared/types/task'
 import { randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
+import { execFile, exec } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -47,6 +47,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:showFiles', handleGitShowFiles)
   ipcMain.handle('git:commitDiff', handleGitCommitDiff)
   ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
+  ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -399,4 +400,46 @@ async function handleClaudeGetCredentials(): Promise<{ isLoggedIn: boolean; acce
     console.error('[Main] Error reading Claude credentials:', err)
   }
   return { isLoggedIn: false }
+}
+
+async function handleClaudeGetQuota(): Promise<{
+  success: boolean
+  sessionUsed?: number
+  sessionReset?: string
+  weekUsed?: number
+  weekReset?: string
+  error?: string
+}> {
+  return new Promise((resolve) => {
+    const localClaudePath = join(homedir(), '.local', 'bin', 'claude.exe')
+    const command = existsSync(localClaudePath) ? `"${localClaudePath}" -p` : 'claude -p'
+
+    const child = exec(command, (error, stdout, _stderr) => {
+      if (error) {
+        resolve({ success: false, error: error.message })
+        return
+      }
+
+      try {
+        const sessionRegex = /Current session:\s*(\d+)%\s*used\s*·\s*resets\s*([^\n\r]+)/
+        const weekRegex = /Current week \(all models\):\s*(\d+)%\s*used\s*·\s*resets\s*([^\n\r]+)/
+
+        const sessionMatch = stdout.match(sessionRegex)
+        const weekMatch = stdout.match(weekRegex)
+
+        resolve({
+          success: true,
+          sessionUsed: sessionMatch ? parseInt(sessionMatch[1], 10) : undefined,
+          sessionReset: sessionMatch ? sessionMatch[2].trim() : undefined,
+          weekUsed: weekMatch ? parseInt(weekMatch[1], 10) : undefined,
+          weekReset: weekMatch ? weekMatch[2].trim() : undefined
+        })
+      } catch (err) {
+        resolve({ success: false, error: String(err) })
+      }
+    })
+
+    child.stdin?.write('/usage\n')
+    child.stdin?.end()
+  })
 }

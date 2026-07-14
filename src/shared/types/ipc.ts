@@ -29,6 +29,17 @@ export interface IpcChannels {
   'git:showFiles': { args: [string, string]; result: { files: string[]; stats: string } }
   'git:commitDiff': { args: [string, string, string]; result: string }
   'claude:getCredentials': { args: []; result: { isLoggedIn: boolean; accessToken?: string; subscriptionType?: string } }
+  'claude:getQuota': {
+    args: []
+    result: {
+      success: boolean
+      sessionUsed?: number
+      sessionReset?: string
+      weekUsed?: number
+      weekReset?: string
+      error?: string
+    }
+  }
 }
 
 export interface DirEntry {

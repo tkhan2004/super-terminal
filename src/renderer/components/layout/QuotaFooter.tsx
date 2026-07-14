@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSettingsStore, CliQuota } from '../../stores/settingsStore'
 import { Shield, Key, Database, RefreshCw, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 
@@ -12,6 +12,27 @@ export function QuotaFooter() {
   const [limit, setLimit] = useState(0)
   const [apiKey, setApiKey] = useState('')
 
+  const [loadingQuota, setLoadingQuota] = useState(false)
+
+  const fetchClaudeQuota = useCallback(async () => {
+    setLoadingQuota(true)
+    try {
+      const res = await window.api.claude.getQuota()
+      if (res && res.success) {
+        updateQuota('claude', {
+          sessionUsed: res.sessionUsed,
+          sessionReset: res.sessionReset,
+          weekUsed: res.weekUsed,
+          weekReset: res.weekReset
+        })
+      }
+    } catch (err) {
+      console.error('Failed to fetch Claude quota:', err)
+    } finally {
+      setLoadingQuota(false)
+    }
+  }, [updateQuota])
+
   useEffect(() => {
     const checkClaudeCreds = async () => {
       try {
@@ -21,6 +42,19 @@ export function QuotaFooter() {
             isLoggedIn: true,
             apiKey: creds.accessToken ? creds.accessToken.substring(0, 18) + '...' : 'Authorized Oauth',
           })
+          
+          // Initial quota fetch
+          setLoadingQuota(true)
+          const res = await window.api.claude.getQuota()
+          if (res && res.success) {
+            updateQuota('claude', {
+              sessionUsed: res.sessionUsed,
+              sessionReset: res.sessionReset,
+              weekUsed: res.weekUsed,
+              weekReset: res.weekReset
+            })
+          }
+          setLoadingQuota(false)
         } else {
           updateQuota('claude', {
             isLoggedIn: false,
@@ -29,10 +63,21 @@ export function QuotaFooter() {
         }
       } catch (err) {
         console.error('Failed to check Claude credentials:', err)
+        setLoadingQuota(false)
       }
     }
     checkClaudeCreds()
   }, [updateQuota])
+
+  useEffect(() => {
+    if (quotas.claude.isLoggedIn) {
+      const timer = setInterval(() => {
+        fetchClaudeQuota()
+      }, 60000)
+      return () => clearInterval(timer)
+    }
+    return undefined
+  }, [quotas.claude.isLoggedIn, fetchClaudeQuota])
 
   const openSettings = (key: string, quota: CliQuota) => {
     setActiveCli(key)
@@ -76,6 +121,90 @@ export function QuotaFooter() {
         {/* Center Quota Statuses */}
         <div className="flex items-center gap-6">
           {Object.entries(quotas).map(([key, quota]) => {
+            if (key === 'claude') {
+              if (!quota.isLoggedIn) {
+                return (
+                  <div 
+                    key={key}
+                    onClick={() => openSettings(key, quota)}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
+                    title="Configure Claude CLI Credentials"
+                  >
+                    <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
+                    <span className="text-muted-foreground/60 italic flex items-center gap-1">
+                      <Key size={10} />
+                      Click to sign in
+                    </span>
+                  </div>
+                )
+              }
+
+              const hasRealQuota = quota.sessionUsed !== undefined
+              const sessionRemaining = hasRealQuota ? (100 - (quota.sessionUsed ?? 0)) : 100
+              const weekRemaining = hasRealQuota ? (100 - (quota.weekUsed ?? 0)) : 100
+
+              let sessionBarColor = 'bg-emerald-500'
+              let sessionTextColor = 'text-emerald-500 font-semibold'
+              if (quota.sessionUsed !== undefined) {
+                if (quota.sessionUsed >= 80) {
+                  sessionBarColor = 'bg-rose-500'
+                  sessionTextColor = 'text-rose-500 font-semibold'
+                } else if (quota.sessionUsed >= 50) {
+                  sessionBarColor = 'bg-amber-500'
+                  sessionTextColor = 'text-amber-500 font-semibold'
+                }
+              }
+
+              let weekBarColor = 'bg-emerald-500'
+              let weekTextColor = 'text-emerald-500 font-semibold'
+              if (quota.weekUsed !== undefined) {
+                if (quota.weekUsed >= 80) {
+                  weekBarColor = 'bg-rose-500'
+                  weekTextColor = 'text-rose-500 font-semibold'
+                } else if (quota.weekUsed >= 50) {
+                  weekBarColor = 'bg-amber-500'
+                  weekTextColor = 'text-amber-500 font-semibold'
+                }
+              }
+
+              return (
+                <div 
+                  key={key}
+                  onClick={fetchClaudeQuota}
+                  className={`flex items-center gap-3 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group ${loadingQuota ? 'opacity-65' : ''}`}
+                  title="Claude CLI Subscription Quota (Click to refresh)"
+                >
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    {quota.name}
+                    {loadingQuota && <RefreshCw size={10} className="animate-spin" />}
+                  </span>
+                  
+                  {hasRealQuota ? (
+                    <>
+                      <div className="flex items-center gap-2 border-r border-border/40 pr-2">
+                        <span className="text-[10px] text-muted-foreground/80">5h:</span>
+                        <div className="w-10 h-1 bg-secondary rounded-full overflow-hidden">
+                          <div className={`h-full ${sessionBarColor}`} style={{ width: `${sessionRemaining}%` }} />
+                        </div>
+                        <span className={sessionTextColor}>{quota.sessionUsed}%</span>
+                        <span className="text-[9px] text-muted-foreground/50">({quota.sessionReset})</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground/80">Week:</span>
+                        <div className="w-10 h-1 bg-secondary rounded-full overflow-hidden">
+                          <div className={`h-full ${weekBarColor}`} style={{ width: `${weekRemaining}%` }} />
+                        </div>
+                        <span className={weekTextColor}>{quota.weekUsed}%</span>
+                        <span className="text-[9px] text-muted-foreground/50">({quota.weekReset})</span>
+                      </div>
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground/50 italic">Loading usage...</span>
+                  )}
+                </div>
+              )
+            }
+
             const pct = quota.limit > 0 ? ((quota.limit - quota.used) / quota.limit) * 100 : 0
             const pctSafe = Math.max(0, Math.min(100, pct))
             const formattedLimit = quota.limit >= 1000000 
@@ -137,8 +266,8 @@ export function QuotaFooter() {
         {/* Right Info */}
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1">
-            <RefreshCw size={11} className="animate-spin-slow" />
-            <span>Simulated Usage Tracker</span>
+            <RefreshCw size={11} className={`${loadingQuota ? 'animate-spin' : ''}`} />
+            <span>CLI Real-time Sync Active</span>
           </div>
         </div>
       </footer>
