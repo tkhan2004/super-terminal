@@ -184,18 +184,11 @@ export function AgentManagerPanel({
   const handleViewCommitFileDiff = async (commitHash: string, filePath: string) => {
     if (!workspaceRootPath) return
     try {
-      const diff = await window.api.git.diff(workspaceRootPath, `${commitHash}^..${commitHash} -- ${filePath}`)
-      setDiffFile(`${filePath} @ ${commitHash}`)
-      setDiffContent(diff || 'No differences found for this file.')
+      const diff = await window.api.git.commitDiff(workspaceRootPath, commitHash, filePath)
+      setDiffFile(`${filePath}  (${commitHash})`)
+      setDiffContent(diff || 'No changes found for this file in this commit.')
     } catch (err: unknown) {
-      // Fallback: try just viewing file diff without commit
-      try {
-        const diff = await window.api.git.diff(workspaceRootPath, filePath)
-        setDiffFile(`${filePath} @ ${commitHash}`)
-        setDiffContent(diff || 'No differences found.')
-      } catch {
-        alert(`Error fetching diff: ${err instanceof Error ? err.message : String(err)}`)
-      }
+      alert(`Error fetching diff: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 

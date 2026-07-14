@@ -22,11 +22,12 @@ export interface IpcChannels {
   'fs:watch:unsubscribe': { args: [string]; result: void }
 
   'git:status': { args: [string]; result: GitStatus }
-  'git:diff': { args: [string, string?]; result: string } // Second arg is optionally file path
+  'git:diff': { args: [string, string?]; result: string }
   'git:log': { args: [string, number?]; result: GitLogEntry[] }
   'git:branches': { args: [string]; result: string[] }
   'git:checkout': { args: [string, string]; result: { success: boolean; error?: string } }
   'git:showFiles': { args: [string, string]; result: { files: string[]; stats: string } }
+  'git:commitDiff': { args: [string, string, string]; result: string }
 }
 
 export interface DirEntry {

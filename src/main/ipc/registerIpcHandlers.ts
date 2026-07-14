@@ -42,6 +42,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:branches', handleGitBranches)
   ipcMain.handle('git:checkout', handleGitCheckout)
   ipcMain.handle('git:showFiles', handleGitShowFiles)
+  ipcMain.handle('git:commitDiff', handleGitCommitDiff)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -357,5 +358,19 @@ async function handleGitShowFiles(
     return { files, stats }
   } catch {
     return { files: [], stats: '' }
+  }
+}
+
+async function handleGitCommitDiff(
+  _event: unknown,
+  cwd: string,
+  commitHash: string,
+  filePath: string
+): Promise<string> {
+  try {
+    // git show <hash> -- <file> gives the diff of that specific file in that commit
+    return await runGit(cwd, ['show', commitHash, '--', filePath])
+  } catch (err: unknown) {
+    return `Error getting commit diff: ${err instanceof Error ? err.message : String(err)}`
   }
 }
