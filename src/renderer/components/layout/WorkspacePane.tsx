@@ -597,7 +597,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
                   className="fixed inset-0 z-40 bg-transparent" 
                   onClick={() => setShowNewTabMenu(false)} 
                 />
-                <div className="absolute top-full left-0 mt-1 w-44 rounded-md border border-border bg-popover py-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                <div className="absolute top-full left-0 mt-1 w-44 rounded-md border border-border bg-card py-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
                   <button
                     onClick={() => {
                       createTab('shell', 'shell')
