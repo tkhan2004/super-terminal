@@ -19,6 +19,18 @@
 
 ---
 
+## 📥 One-Command Installation (Windows)
+
+To download and install the latest compiled version of Super Terminal directly to your computer without downloading files manually or cloning the repository, open **Windows PowerShell** and run:
+
+```powershell
+irm https://raw.githubusercontent.com/tkhan2004/super-terminal/v2/install.ps1 | iex
+```
+
+This script will automatically query the GitHub API, download the latest setup installer, run a silent installation, and place a shortcut on your Desktop and Start Menu.
+
+---
+
 ## 🧠 What is this?
 
 **Super Terminal** is a desktop control center and workspace manager for AI coding agents — Claude Code, Codex CLI, Gemini CLI, OpenCode, CommandCode AI, and any other terminal-based agent.
