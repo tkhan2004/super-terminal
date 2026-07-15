@@ -2,8 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import type { Workspace } from '@shared/types/workspace'
 import { WorkspacePane } from './components/layout/WorkspacePane'
 import { useSettingsStore } from './stores/settingsStore'
-import { X, Plus, Sun, Moon, Monitor } from 'lucide-react'
+import { X, Plus, Sun, Moon, Monitor, Settings } from 'lucide-react'
 import { QuotaFooter } from './components/layout/QuotaFooter'
+import { TerminalAppearanceModal } from './components/terminal/TerminalAppearanceModal'
 
 export default function App() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null)
@@ -12,6 +13,7 @@ export default function App() {
   const onSaveStateRef = useRef<Record<string, () => Promise<void>>>({})
 
   const { themeMode, setThemeMode } = useSettingsStore()
+  const [isAppearanceModalOpen, setIsAppearanceModalOpen] = useState(false)
 
   const cycleTheme = useCallback(() => {
     if (themeMode === 'dark') setThemeMode('light')
@@ -170,6 +172,13 @@ export default function App() {
           )}
           <button
             className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
+            onClick={() => setIsAppearanceModalOpen(true)}
+            title="Terminal Appearance Settings"
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors shrink-0"
             onClick={cycleTheme}
             title={`Theme: ${themeMode.toUpperCase()} (Click to cycle)`}
           >
@@ -236,6 +245,10 @@ export default function App() {
         )}
       </div>
       <QuotaFooter />
+      <TerminalAppearanceModal
+        isOpen={isAppearanceModalOpen}
+        onClose={() => setIsAppearanceModalOpen(false)}
+      />
     </div>
   )
 }

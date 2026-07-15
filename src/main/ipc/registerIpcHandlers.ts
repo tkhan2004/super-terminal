@@ -44,6 +44,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:log', handleGitLog)
   ipcMain.handle('git:branches', handleGitBranches)
   ipcMain.handle('git:checkout', handleGitCheckout)
+  ipcMain.handle('git:moveAsideAndCheckout', handleGitMoveAsideAndCheckout)
   ipcMain.handle('git:showFiles', handleGitShowFiles)
   ipcMain.handle('git:commitDiff', handleGitCommitDiff)
   ipcMain.handle('git:push', handleGitPush)
@@ -220,7 +221,7 @@ async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus>
       branch = 'HEAD'
     }
 
-    const statusOutput = await runGit(cwd, ['status', '--porcelain'])
+    const statusOutput = await runGit(cwd, ['status', '--porcelain', '-uall'])
     const lines = statusOutput.split('\n')
     const modified: string[] = []
     const staged: string[] = []
@@ -371,10 +372,71 @@ async function handleGitCheckout(
   _event: unknown,
   cwd: string,
   branchName: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; reason?: string; conflictingFiles?: string[] }> {
   try {
     await runGit(cwd, ['checkout', branchName])
     return { success: true }
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    
+    // Detect untracked-file conflict specifically
+    if (errMsg.includes('following untracked working tree files would be overwritten')) {
+      // Parse conflicting file paths from git error output
+      const lines = errMsg.split('\n')
+      const conflictingFiles: string[] = []
+      let inFileList = false
+      for (const line of lines) {
+        if (line.includes('following untracked working tree files')) {
+          inFileList = true
+          continue
+        }
+        if (inFileList) {
+          const trimmed = line.trim()
+          if (trimmed.length === 0 || trimmed.startsWith('Please')) break
+          conflictingFiles.push(trimmed)
+        }
+      }
+      return { success: false, reason: 'untracked-conflict', conflictingFiles, error: errMsg }
+    }
+    
+    return { success: false, error: errMsg }
+  }
+}
+
+async function handleGitMoveAsideAndCheckout(
+  _event: unknown,
+  cwd: string,
+  branchName: string,
+  conflictingFiles: string[]
+): Promise<{ success: boolean; error?: string; backupDir?: string }> {
+  const { join } = await import('node:path')
+  const { mkdir, rename } = await import('node:fs/promises')
+  
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const backupDir = join(cwd, `.super-terminal-backup`, timestamp)
+  
+  try {
+    await mkdir(backupDir, { recursive: true })
+    for (const filePath of conflictingFiles) {
+      const src = join(cwd, filePath)
+      // Resolve subdirectory if nested
+      const destDir = join(backupDir, filePath.includes('/') || filePath.includes('\\') 
+        ? filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')))
+        : '')
+      if (destDir !== backupDir) {
+        await mkdir(destDir, { recursive: true })
+      }
+      const dest = join(backupDir, filePath)
+      try { 
+        await rename(src, dest) 
+      } catch (e) { 
+        // File might not exist or be accessible, ignore
+      }
+    }
+    
+    // Retry checkout after moving files
+    await runGit(cwd, ['checkout', branchName])
+    return { success: true, backupDir: `.super-terminal-backup/${timestamp}` }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }

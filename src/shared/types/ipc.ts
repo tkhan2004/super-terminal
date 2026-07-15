@@ -26,7 +26,8 @@ export interface IpcChannels {
   'git:diff': { args: [string, string?]; result: string }
   'git:log': { args: [string, number?]; result: GitLogEntry[] }
   'git:branches': { args: [string]; result: string[] }
-  'git:checkout': { args: [string, string]; result: { success: boolean; error?: string } }
+  'git:checkout': { args: [string, string]; result: { success: boolean; error?: string; reason?: string; conflictingFiles?: string[] } }
+  'git:moveAsideAndCheckout': { args: [string, string, string[]]; result: { success: boolean; error?: string; backupDir?: string } }
   'git:showFiles': { args: [string, string]; result: { files: string[]; stats: string } }
   'git:commitDiff': { args: [string, string, string]; result: string }
   'git:push': { args: [string]; result: { success: boolean; error?: string } }

@@ -221,13 +221,13 @@ export function ExplorerTree({
       const rel = nodePath.replace(rootPath, '').replace(/^[\\/]/, '').replace(/\\/g, '/')
       
       if (gitStatus.modified.some(p => p === rel)) {
-        return <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 rounded shrink-0 ml-1.5 mr-1 font-bold" title="Modified">M</span>
+        return <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-0.5 rounded font-bold" title="Modified">M</span>
       }
       if (gitStatus.staged.some(p => p === rel)) {
-        return <span className="text-[9px] bg-sky-500/10 text-sky-500 border border-sky-500/20 px-1 rounded shrink-0 ml-1.5 mr-1 font-bold" title="Staged">A</span>
+        return <span className="text-[9px] bg-sky-500/10 text-sky-500 border border-sky-500/20 px-0.5 rounded font-bold" title="Staged">A</span>
       }
       if (gitStatus.untracked.some(p => p === rel)) {
-        return <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1 rounded shrink-0 ml-1.5 mr-1 font-bold" title="Untracked">U</span>
+        return <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-0.5 rounded font-bold" title="Untracked">U</span>
       }
       return null
     }
@@ -237,7 +237,7 @@ export function ExplorerTree({
     return (
       <div key={node.entry.path}>
         <div
-          className={`group flex cursor-pointer items-center justify-between gap-1 py-0.5 text-xs hover:bg-secondary/50 ${
+          className={`group flex min-w-0 cursor-pointer items-center justify-between gap-1 py-0.5 text-xs hover:bg-secondary/50 ${
             !node.entry.isDirectory ? 'cursor-grab' : ''
           }`}
           style={{ paddingLeft: indent + 8 }}
@@ -251,7 +251,7 @@ export function ExplorerTree({
           draggable={!node.entry.isDirectory}
           onDragStart={(e) => !node.entry.isDirectory && handleDragStart(e, node.entry)}
         >
-          <div className="flex items-center gap-1 min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-1">
             {node.entry.isDirectory ? (
               <>
                 {node.expanded ? (
@@ -263,13 +263,16 @@ export function ExplorerTree({
               </>
             ) : (
               <>
-                <span className="w-3" />
+                <span className="w-3 shrink-0" />
                 <File size={14} className={`shrink-0 ${statusColorClass ? statusColorClass.split(' ')[0] : 'text-muted-foreground'}`} />
               </>
             )}
             <span className={`truncate ${statusColorClass}`}>{node.entry.name}</span>
-            {getGitBadge(node.entry.path, node.entry.isDirectory)}
           </div>
+          {/* Fixed-width badge slot — always present so every row has the same layout */}
+          <span className="w-5 shrink-0 flex items-center justify-center">
+            {getGitBadge(node.entry.path, node.entry.isDirectory)}
+          </span>
           {!node.entry.isDirectory && (
             <button
               className={`p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-secondary transition-all shrink-0 mr-1.5 ${

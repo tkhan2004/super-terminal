@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { useSettingsStore } from '../../stores/settingsStore'
+import { useSettingsStore, TERMINAL_PRESETS } from '../../stores/settingsStore'
 import '@xterm/xterm/css/xterm.css'
 
 interface UseXtermSessionOptions {
@@ -13,6 +13,7 @@ interface UseXtermSessionOptions {
 
 export function useXtermSession({ sessionId, onResize, onData }: UseXtermSessionOptions) {
   const themeMode = useSettingsStore((state) => state.themeMode)
+  const terminalAppearance = useSettingsStore((state) => state.terminalAppearance)
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
@@ -20,17 +21,16 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
   useEffect(() => {
     if (!containerRef.current) return
 
+    const appearance = terminalAppearance
+    const preset = TERMINAL_PRESETS[appearance.themePreset]
+
     const terminal = new Terminal({
-      fontSize: 14,
-      fontFamily: 'Cascadia Code, Consolas, "Courier New", monospace',
-      cursorBlink: true,
+      fontSize: appearance.fontSize,
+      fontFamily: appearance.fontFamily,
+      cursorBlink: appearance.cursorBlink,
+      cursorStyle: appearance.cursorStyle,
       allowProposedApi: true,
-      theme: {
-        background: '#0a0a0a',
-        foreground: '#e4e4e4',
-        cursor: '#e4e4e4',
-        selectionBackground: '#264f78'
-      }
+      theme: preset
     })
 
     const fitAddon = new FitAddon()
@@ -90,6 +90,7 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
       terminalRef.current = null
       fitAddonRef.current = null
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, onResize, onData])
 
   const write = useCallback((data: string) => {
@@ -107,59 +108,40 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
     terminalRef.current?.focus()
   }, [])
 
+  // React to theme preset / appearance changes live (no remount needed)
   useEffect(() => {
     if (!terminalRef.current) return
+    const preset = TERMINAL_PRESETS[terminalAppearance.themePreset]
+    terminalRef.current.options.theme = preset
+    terminalRef.current.options.fontSize = terminalAppearance.fontSize
+    terminalRef.current.options.fontFamily = terminalAppearance.fontFamily
+    terminalRef.current.options.cursorBlink = terminalAppearance.cursorBlink
+    terminalRef.current.options.cursorStyle = terminalAppearance.cursorStyle
+    fitAddonRef.current?.fit()
+  }, [terminalAppearance])
 
-    const isDark = 
-      themeMode === 'dark' || 
+  // Also react to light/dark theme switch (apply on top of the preset background)
+  useEffect(() => {
+    if (!terminalRef.current) return
+    const isDark =
+      themeMode === 'dark' ||
       (themeMode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
 
-    terminalRef.current.options.theme = isDark
-      ? {
-          background: '#0a0a0a',
-          foreground: '#e4e4e4',
-          cursor: '#e4e4e4',
-          selectionBackground: '#264f78',
-          black: '#000000',
-          red: '#cd3131',
-          green: '#0dbc79',
-          yellow: '#e5e510',
-          blue: '#2472c8',
-          magenta: '#bc3fbc',
-          cyan: '#11a8cd',
-          white: '#e5e5e5',
-          brightBlack: '#666666',
-          brightRed: '#f14c4c',
-          brightGreen: '#23d18b',
-          brightYellow: '#f5f543',
-          brightBlue: '#3b8eea',
-          brightMagenta: '#d670d6',
-          brightCyan: '#29b8db',
-          brightWhite: '#e5e5e5'
-        }
-      : {
-          background: '#ffffff',
-          foreground: '#0f172a',
-          cursor: '#0f172a',
-          selectionBackground: '#cbd5e1',
-          black: '#0f172a',
-          red: '#dc2626',
-          green: '#16a34a',
-          yellow: '#ca8a04',
-          blue: '#2563eb',
-          magenta: '#d946ef',
-          cyan: '#0891b2',
-          white: '#f1f5f9',
-          brightBlack: '#64748b',
-          brightRed: '#ef4444',
-          brightGreen: '#22c55e',
-          brightYellow: '#eab308',
-          brightBlue: '#3b82f6',
-          brightMagenta: '#f02e65',
-          brightCyan: '#06b6d4',
-          brightWhite: '#ffffff'
-        }
-  }, [themeMode])
+    // Only override when the user is on the 'default' preset (which has light variant)
+    if (terminalAppearance.themePreset === 'default') {
+      terminalRef.current.options.theme = isDark
+        ? TERMINAL_PRESETS.default
+        : {
+            background: '#ffffff', foreground: '#0f172a', cursor: '#0f172a',
+            selectionBackground: '#cbd5e1',
+            black: '#0f172a', red: '#dc2626', green: '#16a34a', yellow: '#ca8a04',
+            blue: '#2563eb', magenta: '#d946ef', cyan: '#0891b2', white: '#f1f5f9',
+            brightBlack: '#64748b', brightRed: '#ef4444', brightGreen: '#22c55e',
+            brightYellow: '#eab308', brightBlue: '#3b82f6', brightMagenta: '#f02e65',
+            brightCyan: '#06b6d4', brightWhite: '#ffffff'
+          }
+    }
+  }, [themeMode, terminalAppearance.themePreset])
 
   return { containerRef, write, fit, focus, terminal: terminalRef }
 }

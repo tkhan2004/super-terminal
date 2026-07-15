@@ -102,6 +102,7 @@ export function AgentManagerPanel({
   const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
   const [selectedCommitHash, setSelectedCommitHash] = useState<string | null>(null)
   const [selectedCommitFile, setSelectedCommitFile] = useState<{ commitHash: string; file: string } | null>(null)
+  const [checkoutConflict, setCheckoutConflict] = useState<{ branchName: string; files: string[] } | null>(null)
 
   // Timeline state
   const timelineEvents = useTimelineStore(
@@ -160,10 +161,10 @@ export function AgentManagerPanel({
   const handleBranchSwitch = async (newBranch: string) => {
     if (!workspaceRootPath || !gitStatus) return
 
-    const isDirty = gitStatus.modified.length > 0 || gitStatus.staged.length > 0
+    const isDirty = gitStatus.modified.length > 0 || gitStatus.staged.length > 0 || gitStatus.untracked.length > 0
     if (isDirty) {
       const confirmSwitch = window.confirm(
-        'Warning: You have uncommitted changes. Switching branches might overwrite them. Are you sure you want to proceed?'
+        `Warning: You have uncommitted changes (${gitStatus.modified.length} modified, ${gitStatus.staged.length} staged, ${gitStatus.untracked.length} untracked). Switching branches may overwrite them. Proceed?`
       )
       if (!confirmSwitch) return
     }
@@ -172,11 +173,33 @@ export function AgentManagerPanel({
       const res = await window.api.git.checkout(workspaceRootPath, newBranch)
       if (res.success) {
         fetchGitInfo()
+      } else if (res.reason === 'untracked-conflict' && res.conflictingFiles && res.conflictingFiles.length > 0) {
+        setCheckoutConflict({ branchName: newBranch, files: res.conflictingFiles })
       } else {
         alert(`Checkout failed: ${res.error}`)
       }
     } catch (err: unknown) {
       alert(`Checkout error: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleMoveAsideAndRetry = async () => {
+    if (!checkoutConflict || !workspaceRootPath) return
+    try {
+      const res = await window.api.git.moveAsideAndCheckout(
+        workspaceRootPath,
+        checkoutConflict.branchName,
+        checkoutConflict.files
+      )
+      setCheckoutConflict(null)
+      if (res.success) {
+        alert(`Switched to branch '${checkoutConflict.branchName}'. Conflicting files moved to: ${res.backupDir}`)
+        fetchGitInfo()
+      } else {
+        alert(`Move-aside failed: ${res.error}`)
+      }
+    } catch (err: unknown) {
+      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -892,6 +915,46 @@ export function AgentManagerPanel({
           </div>
         </div>
       )}
+
+      {/* --- CHECKOUT CONFLICT DIALOG MODAL --- */}
+      {checkoutConflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md flex flex-col rounded-lg border border-destructive/50 bg-[#0a0a0a] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-2 border-b border-border bg-destructive/10 px-4 py-3">
+              <AlertTriangle size={16} className="text-destructive shrink-0" />
+              <span className="text-sm font-semibold text-destructive">Branch Checkout Conflict</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Cannot switch to <code className="text-foreground font-mono bg-secondary/20 px-1 rounded">{checkoutConflict.branchName}</code> — the following untracked files in your workspace would be overwritten:
+              </p>
+              <div className="rounded border border-border bg-secondary/5 divide-y divide-border/30 max-h-40 overflow-y-auto">
+                {checkoutConflict.files.map((f) => (
+                  <div key={f} className="px-3 py-1.5 font-mono text-[11px] text-foreground">{f}</div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Choosing "Move aside &amp; retry" will move these files to a timestamped backup folder inside your workspace, then complete the checkout.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-4 py-3 bg-card">
+              <button
+                className="rounded px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                onClick={() => setCheckoutConflict(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                onClick={handleMoveAsideAndRetry}
+              >
+                Move aside &amp; retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

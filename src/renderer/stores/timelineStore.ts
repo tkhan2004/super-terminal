@@ -1,5 +1,23 @@
 import { create } from 'zustand'
 
+// Strip ANSI/VT escape sequences and other control characters from terminal output
+// so detection regexes can match against clean text
+function stripAnsi(str: string): string {
+  return str
+    // ESC [ sequences (CSI): colors, cursor movement, etc.
+    .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+    // ESC ] sequences (OSC): window title, hyperlinks, etc.
+    .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+    // ESC ( charset designation
+    .replace(/\x1b[()][AB012]/g, '')
+    // Other ESC sequences (single char)
+    .replace(/\x1b[=>MH]/g, '')
+    // Lone ESC
+    .replace(/\x1b/g, '')
+    // Other control characters (except newline \x0a and carriage return \x0d)
+    .replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, '')
+}
+
 export interface TimelineEvent {
   id: string
   sessionId: string
@@ -86,14 +104,15 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     })
 
     const buffer = get().sessionBuffers[sessionId] ?? ''
+    const cleanBuffer = stripAnsi(buffer)
 
     // 1. Detect Shell Prompt Idle (command finished)
-    // Heuristics for PowerShell (PS C:\path>), Command Prompt (C:\path>), Bash/Zsh (user@host:path$ or path %)
-    const psPromptRegex = /PS\s+[A-Za-z]:\\[^>]*>\s*$/
+    // Heuristics for PowerShell (PS C:\path>), Command Prompt (C:\path>), Bash/Zsh
+    const psPromptRegex = /PS\s+[A-Za-z]:[\\][^>]*>\s*$|>\s*$|\$\s*$/m
     const cmdPromptRegex = /[A-Za-z]:\\[^>]*>\s*$/
     const bashPromptRegex = /([\w~-]+@[\w-]+:[^$#]*[$#]\s*$)|(\w+@\w+:[^$#]*[$#]\s*$)/
     // We only trigger shell_prompt if it's at the very end of the buffer
-    if (psPromptRegex.test(buffer) || cmdPromptRegex.test(buffer) || bashPromptRegex.test(buffer)) {
+    if (psPromptRegex.test(cleanBuffer) || cmdPromptRegex.test(cleanBuffer) || bashPromptRegex.test(cleanBuffer)) {
       get().addEvent(sessionId, {
         type: 'shell_prompt',
         title: 'Terminal Idle (Ready)',
@@ -105,7 +124,7 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     // 2. Detect Git Commit Outputs
     // Example: [main a4670ae] feat(explorer)...
     const gitCommitRegex = new RegExp('\\[(master|main|[a-zA-Z0-9_\\-/]+)\\s+([0-9a-f]{7,40})\\]\\s+(.*)', 'i')
-    const gitCommitMatch = buffer.match(gitCommitRegex)
+    const gitCommitMatch = cleanBuffer.match(gitCommitRegex)
     if (gitCommitMatch) {
       const branch = gitCommitMatch[1]
       const sha = gitCommitMatch[2]
@@ -128,8 +147,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
 
     // 3. Detect Test Runner Outputs (Jest / Vitest / Playwright)
     // Example: PASS  src/App.test.tsx
-    if (buffer.includes('PASS  ') && !buffer.includes('PASS   detected')) {
-      const passLines = buffer.split('\n').filter(line => line.includes('PASS  '))
+    if (cleanBuffer.includes('PASS  ') && !cleanBuffer.includes('PASS   detected')) {
+      const passLines = cleanBuffer.split('\n').filter(line => line.includes('PASS  '))
       if (passLines.length > 0) {
         const latestPass = passLines[passLines.length - 1].trim()
         const currentEvents = get().events[sessionId] ?? []
@@ -149,8 +168,8 @@ export const useTimelineStore = create<TimelineState>((set, get) => ({
     }
 
     // Example: FAIL  src/App.test.tsx
-    if (buffer.includes('FAIL  ')) {
-      const failLines = buffer.split('\n').filter(line => line.includes('FAIL  '))
+    if (cleanBuffer.includes('FAIL  ')) {
+      const failLines = cleanBuffer.split('\n').filter(line => line.includes('FAIL  '))
       if (failLines.length > 0) {
         const latestFail = failLines[failLines.length - 1].trim()
         const currentEvents = get().events[sessionId] ?? []

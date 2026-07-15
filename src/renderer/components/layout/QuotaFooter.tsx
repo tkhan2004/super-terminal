@@ -167,9 +167,9 @@ export function QuotaFooter() {
 
   return (
     <>
-      <footer className="flex h-7 items-center justify-between border-t border-border bg-card/80 px-3 text-[11px] select-none text-muted-foreground shrink-0 z-20">
+      <footer className="flex h-7 items-center justify-between border-t border-border bg-card/80 px-3 text-[11px] select-none text-muted-foreground shrink-0 z-20 overflow-x-auto [&::-webkit-scrollbar]:hidden">
         {/* Left Status */}
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-4 whitespace-nowrap">
           <div className="flex items-center gap-1.5">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -185,7 +185,7 @@ export function QuotaFooter() {
         </div>
 
         {/* Center Quota Statuses */}
-        <div className="flex items-center gap-6">
+        <div className="flex min-w-0 flex-1 items-center justify-center gap-6 overflow-x-auto px-2 [&::-webkit-scrollbar]:hidden">
           {Object.entries(quotas).map(([key, quota]) => {
             if (key === 'claude') {
               if (!quota.isLoggedIn) {
@@ -425,7 +425,7 @@ export function QuotaFooter() {
         </div>
 
         {/* Right Info */}
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
           <div className="flex items-center gap-1">
             <RefreshCw size={11} className={`${loadingQuota ? 'animate-spin' : ''}`} />
             <span>CLI Real-time Sync Active</span>

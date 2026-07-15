@@ -1,4 +1,5 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, dialog } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { registerIpcHandlers, setMainWindow } from './ipc/registerIpcHandlers'
@@ -73,6 +74,9 @@ async function createWindow(): Promise<void> {
       splash = null
     }
     win?.show()
+    
+    // Check for updates shortly after app shows
+    setTimeout(setupAutoUpdater, 3000)
   })
 
   setMainWindow(win)
@@ -111,3 +115,33 @@ app.whenReady().then(() => {
   logger.info('Electron Application Ready. Spawning MainWindow...')
   createWindow()
 })
+
+function setupAutoUpdater(): void {
+  // Only run autoUpdater in production
+  if (app.isPackaged) {
+    autoUpdater.logger = logger
+    
+    autoUpdater.on('update-downloaded', (info) => {
+      logger.info('Update downloaded successfully, prompting user to restart')
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Ready',
+        message: `Version ${info.version} of Super Terminal has been downloaded. Restart the application to apply the update?`,
+        buttons: ['Restart Now', 'Update on Exit'],
+        defaultId: 0,
+        cancelId: 1
+      }).then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall()
+        }
+      })
+    })
+
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      logger.error('Error running autoUpdater:', err)
+    })
+  } else {
+    logger.info('AutoUpdater is disabled in development mode')
+  }
+}
+

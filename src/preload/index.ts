@@ -90,6 +90,8 @@ const api = {
     log: (cwd: string, limit?: number) => invoke('git:log', cwd, limit),
     branches: (cwd: string) => invoke('git:branches', cwd),
     checkout: (cwd: string, branchName: string) => invoke('git:checkout', cwd, branchName),
+    moveAsideAndCheckout: (cwd: string, branchName: string, conflictingFiles: string[]) =>
+      invoke('git:moveAsideAndCheckout', cwd, branchName, conflictingFiles),
     showFiles: (cwd: string, commitHash: string) => invoke('git:showFiles', cwd, commitHash),
     commitDiff: (cwd: string, commitHash: string, filePath: string) =>
       invoke('git:commitDiff', cwd, commitHash, filePath),
