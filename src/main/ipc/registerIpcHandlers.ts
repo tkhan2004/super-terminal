@@ -46,6 +46,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:checkout', handleGitCheckout)
   ipcMain.handle('git:showFiles', handleGitShowFiles)
   ipcMain.handle('git:commitDiff', handleGitCommitDiff)
+  ipcMain.handle('git:push', handleGitPush)
   ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
   ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
   ipcMain.handle('quota:scanLogins', handleQuotaScanLogins)
@@ -245,6 +246,8 @@ async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus>
 
     let ahead = 0
     let behind = 0
+    const aheadCommits: GitLogEntry[] = []
+
     try {
       const abOutput = await runGit(cwd, ['rev-list', '--left-right', '--count', 'HEAD...@{u}'])
       const parts = abOutput.trim().split(/\s+/)
@@ -256,16 +259,55 @@ async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus>
       // Ignored
     }
 
+    if (ahead > 0) {
+      try {
+        const logOutput = await runGit(cwd, [
+          'log',
+          '@{u}..HEAD',
+          '--format=%h||%s||%an||%ad',
+          '--date=short'
+        ])
+        const logLines = logOutput.trim().split('\n')
+        for (const logLine of logLines) {
+          if (!logLine.trim()) continue
+          const parts = logLine.trim().split('||')
+          if (parts.length === 4) {
+            aheadCommits.push({
+              hash: parts[0],
+              message: parts[1],
+              author: parts[2],
+              date: parts[3]
+            })
+          }
+        }
+      } catch {
+        // Ignored
+      }
+    }
+
     return {
       branch,
       modified,
       staged,
       untracked,
       ahead,
-      behind
+      behind,
+      aheadCommits
     }
   } catch {
     return defaultStatus
+  }
+}
+
+async function handleGitPush(
+  _event: unknown,
+  cwd: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await runGit(cwd, ['push'])
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: String(err) }
   }
 }
 

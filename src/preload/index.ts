@@ -92,7 +92,8 @@ const api = {
     checkout: (cwd: string, branchName: string) => invoke('git:checkout', cwd, branchName),
     showFiles: (cwd: string, commitHash: string) => invoke('git:showFiles', cwd, commitHash),
     commitDiff: (cwd: string, commitHash: string, filePath: string) =>
-      invoke('git:commitDiff', cwd, commitHash, filePath)
+      invoke('git:commitDiff', cwd, commitHash, filePath),
+    push: (cwd: string) => invoke('git:push', cwd)
   },
   claude: {
     getCredentials: () => invoke('claude:getCredentials'),

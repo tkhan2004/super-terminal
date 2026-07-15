@@ -89,6 +89,7 @@ export function AgentManagerPanel({
   const [gitBranches, setGitBranches] = useState<string[]>([])
   const [gitLogs, setGitLogs] = useState<GitLogEntry[]>([])
   const [isGitLoading, setIsGitLoading] = useState(false)
+  const [isPushing, setIsPushing] = useState(false)
   const [diffFile, setDiffFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<string>('')
   const [expandedCommits, setExpandedCommits] = useState<Record<string, boolean>>({})
@@ -176,6 +177,23 @@ export function AgentManagerPanel({
       }
     } catch (err: unknown) {
       alert(`Checkout error: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleGitPush = async () => {
+    if (!workspaceRootPath || isPushing) return
+    setIsPushing(true)
+    try {
+      const result = await window.api.git.push(workspaceRootPath)
+      if (result.success) {
+        await fetchGitInfo()
+      } else {
+        alert(`Failed to push commits: ${result.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      alert(`Error pushing commits: ${String(err)}`)
+    } finally {
+      setIsPushing(false)
     }
   }
 
@@ -583,6 +601,48 @@ export function AgentManagerPanel({
                 <div className="text-xs text-muted-foreground">Not a git repository.</div>
               )}
             </div>
+
+            {/* Unpushed Commits (Ahead) */}
+            {gitStatus && gitStatus.ahead > 0 && (
+              <div className="border border-primary/20 bg-primary/5 rounded-lg p-2.5 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-primary uppercase flex items-center gap-1">
+                    📤 Unpushed Commits ({gitStatus.ahead})
+                  </span>
+                  <button
+                    onClick={handleGitPush}
+                    disabled={isPushing}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {isPushing ? (
+                      <>
+                        <RefreshCw size={10} className="animate-spin shrink-0" />
+                        Pushing...
+                      </>
+                    ) : (
+                      'Push Branch'
+                    )}
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                  {gitStatus.aheadCommits?.map((commit) => (
+                    <div
+                      key={commit.hash}
+                      className="flex flex-col border border-border/50 bg-background/50 rounded p-1.5 text-[11px] leading-snug"
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                        <span className="font-semibold text-primary">{commit.hash}</span>
+                        <span>{commit.date}</span>
+                      </div>
+                      <span className="text-foreground font-medium mt-0.5 line-clamp-2">
+                        {commit.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Changes List */}
             {gitStatus && (
