@@ -554,20 +554,22 @@ export function AgentManagerPanel({
 
               {gitStatus ? (
                 <div className="flex items-center gap-2 w-full min-w-0">
-                  <select
-                    className="flex-grow w-full min-w-0 bg-background border border-border/80 text-xs rounded px-2 py-1 focus:outline-none focus:border-primary font-medium truncate"
-                    value={gitStatus.branch}
-                    onChange={(e) => handleBranchSwitch(e.target.value)}
-                  >
-                    <option value={gitStatus.branch}>{gitStatus.branch}</option>
-                    {gitBranches
-                      .filter((b) => b !== gitStatus.branch)
-                      .map((branch) => (
-                        <option key={branch} value={branch}>
-                          {branch}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="flex-grow min-w-0">
+                    <select
+                      className="w-full bg-background border border-border/80 text-xs rounded px-2 py-1 focus:outline-none focus:border-primary font-medium"
+                      value={gitStatus.branch}
+                      onChange={(e) => handleBranchSwitch(e.target.value)}
+                    >
+                      <option value={gitStatus.branch}>{gitStatus.branch}</option>
+                      {gitBranches
+                        .filter((b) => b !== gitStatus.branch)
+                        .map((branch) => (
+                          <option key={branch} value={branch}>
+                            {branch}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                   
                   {/* Ahead/Behind counts */}
                   {(gitStatus.ahead > 0 || gitStatus.behind > 0) && (
