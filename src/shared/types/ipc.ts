@@ -8,8 +8,8 @@ export interface IpcChannels {
   'workspace:close': { args: [string]; result: void }
   'workspace:selectFolder': { args: []; result: string | null }
   'workspace:getState': { args: [string]; result: { sessions: Session[]; layout: WorkspaceLayout } | null }
-  'workspace:saveState': { args: [Workspace, Session[], WorkspaceLayout, import('./task').Task[]?, string[]?]; result: void }
-  'workspace:restore': { args: [string]; result: { sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace; tasks?: import('./task').Task[]; pinnedFiles?: string[] } | null }
+  'workspace:saveState': { args: [Workspace, Session[], WorkspaceLayout, import('./task').Task[]?, string[]?, Record<string, import('./session').TimelineEvent[]>?]; result: void }
+  'workspace:restore': { args: [string]; result: { sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace; tasks?: import('./task').Task[]; pinnedFiles?: string[]; timeline?: Record<string, import('./session').TimelineEvent[]> } | null }
 
   'session:create': { args: [CreateSessionOptions]; result: Session }
   'session:write': { args: [string, string]; result: void }
@@ -18,6 +18,7 @@ export interface IpcChannels {
 
   'fs:readDir': { args: [string]; result: DirEntry[] }
   'fs:listAllFiles': { args: [string]; result: string[] }
+  'fs:readFile': { args: [string]; result: string }
   'fs:watch:subscribe': { args: [string]; result: string }
   'fs:watch:unsubscribe': { args: [string]; result: void }
 
@@ -25,9 +26,59 @@ export interface IpcChannels {
   'git:diff': { args: [string, string?]; result: string }
   'git:log': { args: [string, number?]; result: GitLogEntry[] }
   'git:branches': { args: [string]; result: string[] }
-  'git:checkout': { args: [string, string]; result: { success: boolean; error?: string } }
+  'git:checkout': { args: [string, string]; result: { success: boolean; error?: string; reason?: string; conflictingFiles?: string[] } }
+  'git:moveAsideAndCheckout': { args: [string, string, string[]]; result: { success: boolean; error?: string; backupDir?: string } }
   'git:showFiles': { args: [string, string]; result: { files: string[]; stats: string } }
   'git:commitDiff': { args: [string, string, string]; result: string }
+  'git:push': { args: [string]; result: { success: boolean; error?: string } }
+  'system:checkCliInstalled': { args: [string]; result: boolean }
+  'claude:getCredentials': { args: []; result: { isLoggedIn: boolean; accessToken?: string; subscriptionType?: string } }
+  'claude:getQuota': {
+    args: []
+    result: {
+      success: boolean
+      sessionUsed?: number
+      sessionReset?: string
+      weekUsed?: number
+      weekReset?: string
+      fableUsed?: number
+      error?: string
+    }
+  }
+  'commandcode:getQuota': {
+    args: []
+    result: {
+      success: boolean
+      fiveHourUsed?: number
+      fiveHourCap?: number
+      fiveHourReset?: string
+      weeklyUsed?: number
+      weeklyCap?: number
+      weeklyReset?: string
+      error?: string
+    }
+  }
+  'antigravity:getQuota': {
+    args: []
+    result: {
+      success: boolean
+      fiveHourUsed?: number
+      fiveHourReset?: string
+      weeklyUsed?: number
+      weeklyReset?: string
+      error?: string
+    }
+  }
+  'quota:scanLogins': {
+    args: []
+    result: {
+      claude: boolean
+      codex: boolean
+      antigravity: boolean
+      commandcodeai: boolean
+      opencode: boolean
+    }
+  }
 }
 
 export interface DirEntry {
@@ -43,6 +94,7 @@ export interface GitStatus {
   untracked: string[]
   ahead: number
   behind: number
+  aheadCommits?: GitLogEntry[]
 }
 
 export interface GitLogEntry {

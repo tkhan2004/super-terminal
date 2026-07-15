@@ -1,10 +1,13 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { ptyManager } from '../pty/ptyManager'
-import type { Session, CreateSessionOptions } from '@shared/types/session'
+import type { Session, CreateSessionOptions, TimelineEvent } from '@shared/types/session'
 import type { Workspace, WorkspaceLayout } from '@shared/types/workspace'
 import type { Task } from '@shared/types/task'
 import { randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
+import { execFile, exec } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { WorkspaceRepositoryJson } from '../workspace/workspaceRepositoryJson'
 import { RestoreService } from '../workspace/restoreService'
 import type { GitStatus, GitLogEntry } from '@shared/types/ipc'
@@ -41,8 +44,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('git:log', handleGitLog)
   ipcMain.handle('git:branches', handleGitBranches)
   ipcMain.handle('git:checkout', handleGitCheckout)
+  ipcMain.handle('git:moveAsideAndCheckout', handleGitMoveAsideAndCheckout)
   ipcMain.handle('git:showFiles', handleGitShowFiles)
   ipcMain.handle('git:commitDiff', handleGitCommitDiff)
+  ipcMain.handle('git:push', handleGitPush)
+  ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
+  ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
+  ipcMain.handle('quota:scanLogins', handleQuotaScanLogins)
+  ipcMain.handle('system:checkCliInstalled', handleSystemCheckCliInstalled)
+  ipcMain.handle('commandcode:getQuota', handleCommandcodeGetQuota)
+  ipcMain.handle('antigravity:getQuota', handleAntigravityGetQuota)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -101,15 +112,16 @@ async function handleWorkspaceSaveState(
   sessions: Session[],
   layout: WorkspaceLayout,
   tasks?: Task[],
-  pinnedFiles?: string[]
+  pinnedFiles?: string[],
+  timeline?: Record<string, TimelineEvent[]>
 ): Promise<void> {
-  repo.saveWorkspaceState({ workspace, sessions, layout, tasks, pinnedFiles })
+  repo.saveWorkspaceState({ workspace, sessions, layout, tasks, pinnedFiles, timeline })
 }
 
 async function handleWorkspaceRestore(
   _event: unknown,
   workspaceId: string
-): Promise<{ sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace; tasks?: Task[]; pinnedFiles?: string[] } | null> {
+): Promise<{ sessions: Session[]; layout: WorkspaceLayout; workspace: Workspace; tasks?: Task[]; pinnedFiles?: string[]; timeline?: Record<string, TimelineEvent[]> } | null> {
   const win = getMainWindow()
   if (!win) return null
   const result = restoreService.restoreWorkspace(workspaceId, win, true)
@@ -125,7 +137,9 @@ async function handleSessionCreate(
     command: opts.command,
     cwd: opts.cwd,
     agentType: opts.agentType ?? 'shell',
-    title: opts.title
+    title: opts.title,
+    cols: opts.cols,
+    rows: opts.rows
   })
 
   const win = getMainWindow()
@@ -208,7 +222,7 @@ async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus>
       branch = 'HEAD'
     }
 
-    const statusOutput = await runGit(cwd, ['status', '--porcelain'])
+    const statusOutput = await runGit(cwd, ['status', '--porcelain', '-uall'])
     const lines = statusOutput.split('\n')
     const modified: string[] = []
     const staged: string[] = []
@@ -234,6 +248,8 @@ async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus>
 
     let ahead = 0
     let behind = 0
+    const aheadCommits: GitLogEntry[] = []
+
     try {
       const abOutput = await runGit(cwd, ['rev-list', '--left-right', '--count', 'HEAD...@{u}'])
       const parts = abOutput.trim().split(/\s+/)
@@ -245,16 +261,55 @@ async function handleGitStatus(_event: unknown, cwd: string): Promise<GitStatus>
       // Ignored
     }
 
+    if (ahead > 0) {
+      try {
+        const logOutput = await runGit(cwd, [
+          'log',
+          '@{u}..HEAD',
+          '--format=%h||%s||%an||%ad',
+          '--date=short'
+        ])
+        const logLines = logOutput.trim().split('\n')
+        for (const logLine of logLines) {
+          if (!logLine.trim()) continue
+          const parts = logLine.trim().split('||')
+          if (parts.length === 4) {
+            aheadCommits.push({
+              hash: parts[0],
+              message: parts[1],
+              author: parts[2],
+              date: parts[3]
+            })
+          }
+        }
+      } catch {
+        // Ignored
+      }
+    }
+
     return {
       branch,
       modified,
       staged,
       untracked,
       ahead,
-      behind
+      behind,
+      aheadCommits
     }
   } catch {
     return defaultStatus
+  }
+}
+
+async function handleGitPush(
+  _event: unknown,
+  cwd: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await runGit(cwd, ['push'])
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: String(err) }
   }
 }
 
@@ -318,10 +373,71 @@ async function handleGitCheckout(
   _event: unknown,
   cwd: string,
   branchName: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; reason?: string; conflictingFiles?: string[] }> {
   try {
     await runGit(cwd, ['checkout', branchName])
     return { success: true }
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err)
+    
+    // Detect untracked-file conflict specifically
+    if (errMsg.includes('following untracked working tree files would be overwritten')) {
+      // Parse conflicting file paths from git error output
+      const lines = errMsg.split('\n')
+      const conflictingFiles: string[] = []
+      let inFileList = false
+      for (const line of lines) {
+        if (line.includes('following untracked working tree files')) {
+          inFileList = true
+          continue
+        }
+        if (inFileList) {
+          const trimmed = line.trim()
+          if (trimmed.length === 0 || trimmed.startsWith('Please')) break
+          conflictingFiles.push(trimmed)
+        }
+      }
+      return { success: false, reason: 'untracked-conflict', conflictingFiles, error: errMsg }
+    }
+    
+    return { success: false, error: errMsg }
+  }
+}
+
+async function handleGitMoveAsideAndCheckout(
+  _event: unknown,
+  cwd: string,
+  branchName: string,
+  conflictingFiles: string[]
+): Promise<{ success: boolean; error?: string; backupDir?: string }> {
+  const { join } = await import('node:path')
+  const { mkdir, rename } = await import('node:fs/promises')
+  
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+  const backupDir = join(cwd, `.super-terminal-backup`, timestamp)
+  
+  try {
+    await mkdir(backupDir, { recursive: true })
+    for (const filePath of conflictingFiles) {
+      const src = join(cwd, filePath)
+      // Resolve subdirectory if nested
+      const destDir = join(backupDir, filePath.includes('/') || filePath.includes('\\') 
+        ? filePath.substring(0, Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\')))
+        : '')
+      if (destDir !== backupDir) {
+        await mkdir(destDir, { recursive: true })
+      }
+      const dest = join(backupDir, filePath)
+      try { 
+        await rename(src, dest) 
+      } catch (e) { 
+        // File might not exist or be accessible, ignore
+      }
+    }
+    
+    // Retry checkout after moving files
+    await runGit(cwd, ['checkout', branchName])
+    return { success: true, backupDir: `.super-terminal-backup/${timestamp}` }
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
@@ -374,3 +490,280 @@ async function handleGitCommitDiff(
     return `Error getting commit diff: ${err instanceof Error ? err.message : String(err)}`
   }
 }
+
+async function handleClaudeGetCredentials(): Promise<{ isLoggedIn: boolean; accessToken?: string; subscriptionType?: string }> {
+  try {
+    const credPath = join(homedir(), '.claude', '.credentials.json')
+    if (existsSync(credPath)) {
+      const data = JSON.parse(readFileSync(credPath, 'utf8'))
+      if (data && data.claudeAiOauth) {
+        return {
+          isLoggedIn: true,
+          accessToken: data.claudeAiOauth.accessToken,
+          subscriptionType: data.claudeAiOauth.subscriptionType
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[Main] Error reading Claude credentials:', err)
+  }
+  return { isLoggedIn: false }
+}
+
+async function handleClaudeGetQuota(): Promise<{
+  success: boolean
+  sessionUsed?: number
+  sessionReset?: string
+  weekUsed?: number
+  weekReset?: string
+  fableUsed?: number
+  error?: string
+}> {
+  return new Promise((resolve) => {
+    const localClaudePath = join(homedir(), '.local', 'bin', 'claude.exe')
+    const command = existsSync(localClaudePath) ? `"${localClaudePath}" -p` : 'claude -p'
+
+    const child = exec(command, (error, stdout, _stderr) => {
+      if (error) {
+        resolve({ success: false, error: error.message })
+        return
+      }
+
+      try {
+        const sessionRegex = /Current session:\s*(\d+)%\s*used\s*·\s*resets\s*([^\n\r]+)/
+        const weekRegex = /Current week \(all models\):\s*(\d+)%\s*used\s*·\s*resets\s*([^\n\r]+)/
+        const fableRegex = /Current week \(Fable\):\s*(\d+)%\s*used/
+
+        const sessionMatch = stdout.match(sessionRegex)
+        const weekMatch = stdout.match(weekRegex)
+        const fableMatch = stdout.match(fableRegex)
+
+        resolve({
+          success: true,
+          sessionUsed: sessionMatch ? parseInt(sessionMatch[1], 10) : undefined,
+          sessionReset: sessionMatch ? sessionMatch[2].trim() : undefined,
+          weekUsed: weekMatch ? parseInt(weekMatch[1], 10) : undefined,
+          weekReset: weekMatch ? weekMatch[2].trim() : undefined,
+          fableUsed: fableMatch ? parseInt(fableMatch[1], 10) : undefined
+        })
+      } catch (err) {
+        resolve({ success: false, error: String(err) })
+      }
+    })
+
+    child.stdin?.write('/usage\n')
+    child.stdin?.end()
+  })
+}
+
+function isNonEmptyCredentialFile(path: string): boolean {
+  try {
+    if (!existsSync(path)) return false
+    const raw = readFileSync(path, 'utf8').trim()
+    if (!raw) return false
+    JSON.parse(raw)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// Antigravity stores its OAuth token in the OS keyring (Windows Credential
+// Manager), not a plain file, so we can't detect login the same way as the
+// others. `cmdkey /list` reads the real credential store without exposing
+// secrets — best signal available without a native keyring dependency.
+function checkWindowsCredentialManager(needle: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    exec('cmdkey /list', (error, stdout) => {
+      if (error) {
+        resolve(false)
+        return
+      }
+      resolve(stdout.toLowerCase().includes(needle.toLowerCase()))
+    })
+  })
+}
+
+async function handleQuotaScanLogins(): Promise<{
+  claude: boolean
+  codex: boolean
+  antigravity: boolean
+  commandcodeai: boolean
+  opencode: boolean
+}> {
+  const claude = (await handleClaudeGetCredentials()).isLoggedIn
+
+  const codex = isNonEmptyCredentialFile(
+    join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'auth.json')
+  )
+
+  const opencode =
+    isNonEmptyCredentialFile(join(homedir(), '.local', 'share', 'opencode', 'auth.json')) ||
+    (process.env.LOCALAPPDATA
+      ? isNonEmptyCredentialFile(join(process.env.LOCALAPPDATA, 'opencode', 'auth.json'))
+      : false) ||
+    (process.env.APPDATA
+      ? existsSync(join(process.env.APPDATA, 'ai.opencode.desktop', 'opencode.global.dat'))
+      : false)
+
+  const commandcodeai =
+    !!process.env.COMMAND_CODE_API_KEY ||
+    isNonEmptyCredentialFile(join(homedir(), '.commandcode', 'auth.json'))
+
+  const antigravity =
+    (await checkWindowsCredentialManager('antigravity')) ||
+    existsSync(join(homedir(), '.antigravity_cockpit', 'credentials.json')) ||
+    !!process.env.ANTIGRAVITY_AGENT
+
+  return { claude, codex, antigravity, commandcodeai, opencode }
+}
+
+async function handleCommandcodeGetQuota(): Promise<{
+  success: boolean
+  fiveHourUsed?: number
+  fiveHourCap?: number
+  fiveHourReset?: string
+  weeklyUsed?: number
+  weeklyCap?: number
+  weeklyReset?: string
+  error?: string
+}> {
+  try {
+    let apiKey = process.env.COMMAND_CODE_API_KEY
+    if (!apiKey) {
+      const authPath = join(homedir(), '.commandcode', 'auth.json')
+      if (existsSync(authPath)) {
+        const auth = JSON.parse(readFileSync(authPath, 'utf8'))
+        apiKey = auth.apiKey
+      }
+    }
+
+    if (!apiKey) {
+      return { success: false, error: 'No API Key found' }
+    }
+
+    const res = await fetch('https://api.commandcode.ai/alpha/billing/credits', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    })
+
+    if (!res.ok) {
+      return { success: false, error: `API responded with status ${res.status}` }
+    }
+
+    const data = await res.json() as any
+    const fiveHour = data.windowLimits?.fiveHour
+    const weekly = data.windowLimits?.weekly
+
+    const formatReset = (ts: number | undefined) => {
+      if (!ts) return undefined
+      const date = new Date(ts)
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    }
+
+    return {
+      success: true,
+      fiveHourUsed: fiveHour ? Math.round((fiveHour.used / fiveHour.cap) * 100) : undefined,
+      fiveHourCap: fiveHour?.cap,
+      fiveHourReset: formatReset(fiveHour?.resetAt),
+      weeklyUsed: weekly ? Math.round((weekly.used / weekly.cap) * 100) : undefined,
+      weeklyCap: weekly?.cap,
+      weeklyReset: formatReset(weekly?.resetAt)
+    }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
+}
+
+async function handleAntigravityGetQuota(): Promise<{
+  success: boolean
+  fiveHourUsed?: number
+  fiveHourReset?: string
+  weeklyUsed?: number
+  weeklyReset?: string
+  error?: string
+}> {
+  return new Promise((resolve) => {
+    let resolved = false
+    let output = ''
+
+    const agyPath = process.platform === 'win32' ? 'agy.exe' : 'agy'
+    let ptyProcess: any
+
+    try {
+      const pty = require('node-pty')
+      ptyProcess = pty.spawn(agyPath, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: homedir(),
+        env: process.env
+      })
+
+      ptyProcess.onData((data: string) => {
+        output += data
+      })
+
+      const timer1 = setTimeout(() => {
+        if (!resolved) {
+          ptyProcess.write('/usage\r\n')
+        }
+      }, 2500)
+
+      const timer2 = setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          cleanupAndResolve()
+        }
+      }, 5000)
+
+      const cleanupAndResolve = () => {
+        clearTimeout(timer1)
+        clearTimeout(timer2)
+        try {
+          ptyProcess.kill()
+        } catch {}
+
+        try {
+          const cleanOutput = output.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')
+
+          const fiveHourMatch = cleanOutput.match(/Five Hour Limit\s*(?:\r?\n\s*)?\[[█░]+\]\s*([\d.]+)%\s*(?:\r?\n\s*)?(\d+)%\s*remaining\s*·\s*Refreshes\s*in\s*([^\n\r]+)/i)
+          const weeklyMatch = cleanOutput.match(/Weekly Limit\s*(?:\r?\n\s*)?\[[█░]+\]\s*([\d.]+)%\s*(?:\r?\n\s*)?(\d+)%\s*remaining\s*·\s*Refreshes\s*in\s*([^\n\r]+)/i)
+
+          const fiveHourRemaining = fiveHourMatch ? parseInt(fiveHourMatch[2], 10) : undefined
+          const weeklyRemaining = weeklyMatch ? parseInt(weeklyMatch[2], 10) : undefined
+
+          resolve({
+            success: true,
+            fiveHourUsed: fiveHourRemaining !== undefined ? (100 - fiveHourRemaining) : undefined,
+            fiveHourReset: fiveHourMatch ? fiveHourMatch[3].trim() : undefined,
+            weeklyUsed: weeklyRemaining !== undefined ? (100 - weeklyRemaining) : undefined,
+            weeklyReset: weeklyMatch ? weeklyMatch[3].trim() : undefined
+          })
+        } catch (err) {
+          resolve({ success: false, error: String(err) })
+        }
+      }
+    } catch (err) {
+      if (!resolved) {
+        resolved = true
+        resolve({ success: false, error: String(err) })
+      }
+    }
+  })
+}
+
+async function handleSystemCheckCliInstalled(
+  _event: unknown,
+  cmd: string
+): Promise<boolean> {
+  const { exec } = await import('node:child_process')
+  return new Promise((resolve) => {
+    const checkCmd = process.platform === 'win32' ? `where.exe ${cmd}` : `which ${cmd}`
+    exec(checkCmd, (err) => {
+      resolve(!err)
+    })
+  })
+}
+

@@ -25,7 +25,7 @@ export function TerminalPane({ sessionId, isActive, onActivate }: TerminalPanePr
     [sessionId]
   )
 
-  const { containerRef, write, focus } = useXtermSession({
+  const { containerRef, write, focus, fit } = useXtermSession({
     sessionId,
     onResize: handleResize,
     onData: handleData
@@ -52,13 +52,30 @@ export function TerminalPane({ sessionId, isActive, onActivate }: TerminalPanePr
 
   useEffect(() => {
     if (isActive) {
+      fit()
       focus()
+      
+      const raf = requestAnimationFrame(() => {
+        fit()
+        focus()
+      })
+
+      const timer = setTimeout(() => {
+        fit()
+        focus()
+      }, 50)
+
+      return () => {
+        cancelAnimationFrame(raf)
+        clearTimeout(timer)
+      }
     }
-  }, [isActive, focus])
+    return undefined
+  }, [isActive, focus, fit])
 
   return (
     <div
-      className="h-full w-full bg-[#0a0a0a]"
+      className="h-full w-full bg-background"
       ref={containerRef}
       onClick={onActivate}
     />

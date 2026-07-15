@@ -35,6 +35,7 @@ export class PtySession extends EventEmitter {
   private status: SessionStatus = 'running'
   private exitCode: number | undefined
   private exited = false
+  private isFallback = false
 
   constructor(options: PtySessionOptions) {
     super()
@@ -120,6 +121,60 @@ export class PtySession extends EventEmitter {
   }
 
   private handleExit(exitCode: number, signal?: number): void {
+    const elapsed = Date.now() - this.createdAt
+    
+    // If it exited with non-zero code immediately (within 4 seconds) and it's not already a fallback
+    if (exitCode !== 0 && elapsed < 4000 && !this.isFallback && this.command !== 'shell') {
+      this.isFallback = true
+      this.exited = false
+      this.status = 'running'
+      this.exitCode = undefined
+
+      let installCmd = ''
+      if (this.command.includes('claude')) {
+        installCmd = 'npm install -g @anthropic-ai/claude-code'
+      } else if (this.command.includes('codex')) {
+        installCmd = 'npm install -g @codex-ai/cli'
+      } else if (this.command.includes('9router') || this.command.includes('opencode')) {
+        installCmd = 'npm install -g @opencode/cli'
+      } else if (this.command.includes('commandcode')) {
+        installCmd = 'npm install -g commandcode'
+      } else if (this.command.includes('agy') || this.command.includes('antigravity')) {
+        installCmd = 'agy install'
+      }
+
+      let errorMsg = `\r\n\x1b[31;1mError: Command '${this.command}' failed to start or exited immediately (code ${exitCode}).\x1b[0m\r\n`
+      if (installCmd) {
+        errorMsg += `\x1b[33mIf this CLI agent is not installed or configured, you can install it using:\x1b[0m\r\n`
+        errorMsg += `  \x1b[36m${installCmd}\x1b[0m\r\n\r\n`
+      } else {
+        errorMsg += `\x1b[33mPlease check that the executable is installed and available in your PATH.\x1b[0m\r\n\r\n`
+      }
+      errorMsg += `\x1b[32m[Super Terminal] Fallback interactive shell started. You can run commands or troubleshoot below:\x1b[0m\r\n\r\n`
+
+      this.emit('data', errorMsg)
+
+      const fallbackShell = process.platform === 'win32' 
+        ? 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+        : (process.env.SHELL || '/bin/bash')
+
+      try {
+        this.pty = spawn(fallbackShell, [], {
+          name: 'xterm-256color',
+          cols: this.pty.cols,
+          rows: this.pty.rows,
+          cwd: this.cwd,
+          env: process.env as Record<string, string>
+        })
+
+        this.pty.onData((data) => this.handleData(data))
+        this.pty.onExit(({ exitCode, signal }) => this.handleExit(exitCode, signal))
+        return
+      } catch (err) {
+        this.emit('data', `\r\nFailed to start fallback shell: ${String(err)}\r\n`)
+      }
+    }
+
     this.exited = true
     this.exitCode = exitCode
     this.status = 'exited'

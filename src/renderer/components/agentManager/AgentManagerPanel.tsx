@@ -44,7 +44,9 @@ const agentTypeColors: Record<AgentType, string> = {
   gemini: 'bg-purple-500',
   opencode: 'bg-cyan-500',
   amp: 'bg-yellow-500',
-  unknown: 'bg-gray-500'
+  unknown: 'bg-gray-500',
+  antigravity: 'bg-purple-600',
+  commandcodeai: 'bg-amber-500'
 }
 
 const statusColors: Record<SessionStatus, string> = {
@@ -87,10 +89,20 @@ export function AgentManagerPanel({
   const [gitBranches, setGitBranches] = useState<string[]>([])
   const [gitLogs, setGitLogs] = useState<GitLogEntry[]>([])
   const [isGitLoading, setIsGitLoading] = useState(false)
+  const [isPushing, setIsPushing] = useState(false)
   const [diffFile, setDiffFile] = useState<string | null>(null)
   const [diffContent, setDiffContent] = useState<string>('')
   const [expandedCommits, setExpandedCommits] = useState<Record<string, boolean>>({})
   const [commitFiles, setCommitFiles] = useState<Record<string, { files: string[]; stats: string }>>({})
+  const [gitCollapsed, setGitCollapsed] = useState<Record<'unstaged' | 'staged' | 'untracked', boolean>>({
+    unstaged: false,
+    staged: false,
+    untracked: false
+  })
+  const [selectedFilePath, setSelectedFilePath] = useState<string | null>(null)
+  const [selectedCommitHash, setSelectedCommitHash] = useState<string | null>(null)
+  const [selectedCommitFile, setSelectedCommitFile] = useState<{ commitHash: string; file: string } | null>(null)
+  const [checkoutConflict, setCheckoutConflict] = useState<{ branchName: string; files: string[] } | null>(null)
 
   // Timeline state
   const timelineEvents = useTimelineStore(
@@ -149,10 +161,10 @@ export function AgentManagerPanel({
   const handleBranchSwitch = async (newBranch: string) => {
     if (!workspaceRootPath || !gitStatus) return
 
-    const isDirty = gitStatus.modified.length > 0 || gitStatus.staged.length > 0
+    const isDirty = gitStatus.modified.length > 0 || gitStatus.staged.length > 0 || gitStatus.untracked.length > 0
     if (isDirty) {
       const confirmSwitch = window.confirm(
-        'Warning: You have uncommitted changes. Switching branches might overwrite them. Are you sure you want to proceed?'
+        `Warning: You have uncommitted changes (${gitStatus.modified.length} modified, ${gitStatus.staged.length} staged, ${gitStatus.untracked.length} untracked). Switching branches may overwrite them. Proceed?`
       )
       if (!confirmSwitch) return
     }
@@ -161,6 +173,8 @@ export function AgentManagerPanel({
       const res = await window.api.git.checkout(workspaceRootPath, newBranch)
       if (res.success) {
         fetchGitInfo()
+      } else if (res.reason === 'untracked-conflict' && res.conflictingFiles && res.conflictingFiles.length > 0) {
+        setCheckoutConflict({ branchName: newBranch, files: res.conflictingFiles })
       } else {
         alert(`Checkout failed: ${res.error}`)
       }
@@ -169,8 +183,48 @@ export function AgentManagerPanel({
     }
   }
 
+  const handleMoveAsideAndRetry = async () => {
+    if (!checkoutConflict || !workspaceRootPath) return
+    try {
+      const res = await window.api.git.moveAsideAndCheckout(
+        workspaceRootPath,
+        checkoutConflict.branchName,
+        checkoutConflict.files
+      )
+      setCheckoutConflict(null)
+      if (res.success) {
+        alert(`Switched to branch '${checkoutConflict.branchName}'. Conflicting files moved to: ${res.backupDir}`)
+        fetchGitInfo()
+      } else {
+        alert(`Move-aside failed: ${res.error}`)
+      }
+    } catch (err: unknown) {
+      alert(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleGitPush = async () => {
+    if (!workspaceRootPath || isPushing) return
+    setIsPushing(true)
+    try {
+      const result = await window.api.git.push(workspaceRootPath)
+      if (result.success) {
+        await fetchGitInfo()
+      } else {
+        alert(`Failed to push commits: ${result.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      alert(`Error pushing commits: ${String(err)}`)
+    } finally {
+      setIsPushing(false)
+    }
+  }
+
   // File diff handler
   const handleViewDiff = async (filePath: string) => {
+    setSelectedFilePath(filePath)
+    setSelectedCommitHash(null)
+    setSelectedCommitFile(null)
     if (!workspaceRootPath) return
     try {
       const diff = await window.api.git.diff(workspaceRootPath, filePath)
@@ -182,6 +236,9 @@ export function AgentManagerPanel({
   }
 
   const handleViewCommitFileDiff = async (commitHash: string, filePath: string) => {
+    setSelectedFilePath(null)
+    setSelectedCommitHash(commitHash)
+    setSelectedCommitFile({ commitHash, file: filePath })
     if (!workspaceRootPath) return
     try {
       const diff = await window.api.git.commitDiff(workspaceRootPath, commitHash, filePath)
@@ -193,6 +250,9 @@ export function AgentManagerPanel({
   }
 
   const toggleCommit = async (hash: string) => {
+    setSelectedFilePath(null)
+    setSelectedCommitHash(hash)
+    setSelectedCommitFile(null)
     const isExpanded = expandedCommits[hash]
     setExpandedCommits((prev) => ({ ...prev, [hash]: !isExpanded }))
 
@@ -534,21 +594,23 @@ export function AgentManagerPanel({
               </div>
 
               {gitStatus ? (
-                <div className="flex items-center gap-2">
-                  <select
-                    className="flex-1 bg-background border border-border/80 text-xs rounded px-2 py-1 focus:outline-none focus:border-primary font-medium"
-                    value={gitStatus.branch}
-                    onChange={(e) => handleBranchSwitch(e.target.value)}
-                  >
-                    <option value={gitStatus.branch}>{gitStatus.branch}</option>
-                    {gitBranches
-                      .filter((b) => b !== gitStatus.branch)
-                      .map((branch) => (
-                        <option key={branch} value={branch}>
-                          {branch}
-                        </option>
-                      ))}
-                  </select>
+                <div className="flex items-center gap-2 w-full min-w-0">
+                  <div className="flex-grow min-w-0">
+                    <select
+                      className="w-full bg-background border border-border/80 text-xs rounded px-2 py-1 focus:outline-none focus:border-primary font-medium"
+                      value={gitStatus.branch}
+                      onChange={(e) => handleBranchSwitch(e.target.value)}
+                    >
+                      <option value={gitStatus.branch}>{gitStatus.branch}</option>
+                      {gitBranches
+                        .filter((b) => b !== gitStatus.branch)
+                        .map((branch) => (
+                          <option key={branch} value={branch}>
+                            {branch}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                   
                   {/* Ahead/Behind counts */}
                   {(gitStatus.ahead > 0 || gitStatus.behind > 0) && (
@@ -563,72 +625,159 @@ export function AgentManagerPanel({
               )}
             </div>
 
+            {/* Unpushed Commits (Ahead) */}
+            {gitStatus && gitStatus.ahead > 0 && (
+              <div className="border border-primary/20 bg-primary/5 rounded-lg p-2.5 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-primary uppercase flex items-center gap-1">
+                    📤 Unpushed Commits ({gitStatus.ahead})
+                  </span>
+                  <button
+                    onClick={handleGitPush}
+                    disabled={isPushing}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {isPushing ? (
+                      <>
+                        <RefreshCw size={10} className="animate-spin shrink-0" />
+                        Pushing...
+                      </>
+                    ) : (
+                      'Push Branch'
+                    )}
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-36 overflow-y-auto custom-scrollbar">
+                  {gitStatus.aheadCommits?.map((commit) => (
+                    <div
+                      key={commit.hash}
+                      className="flex flex-col border border-border/50 bg-background/50 rounded p-1.5 text-[11px] leading-snug"
+                    >
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                        <span className="font-semibold text-primary">{commit.hash}</span>
+                        <span>{commit.date}</span>
+                      </div>
+                      <span className="text-foreground font-medium mt-0.5 line-clamp-2">
+                        {commit.message}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Changes List */}
             {gitStatus && (
               <div className="space-y-3.5">
                 {/* Unstaged files */}
                 {gitStatus.modified.length > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-amber-500 uppercase px-1">
-                      <span>Unstaged Changes ({gitStatus.modified.length})</span>
+                    <div
+                      className="flex items-center justify-between text-[10px] font-semibold text-amber-500 uppercase px-1 cursor-pointer select-none hover:text-amber-400"
+                      onClick={() => setGitCollapsed((prev) => ({ ...prev, unstaged: !prev.unstaged }))}
+                    >
+                      <div className="flex items-center gap-1">
+                        {gitCollapsed.unstaged ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                        <span>Unstaged Changes ({gitStatus.modified.length})</span>
+                      </div>
                       <AlertTriangle size={10} />
                     </div>
-                    <div className="space-y-1">
-                      {gitStatus.modified.map((file) => (
-                        <div
-                          key={file}
-                          className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleViewDiff(file)}
-                        >
-                          <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
-                          <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                    {!gitCollapsed.unstaged && (
+                      <div className="space-y-1">
+                        {gitStatus.modified.map((file) => {
+                          const isSelected = selectedFilePath === file && !selectedCommitHash
+                          return (
+                            <div
+                              key={file}
+                              className={`group flex items-center justify-between text-xs rounded border px-2 py-1.5 hover:bg-secondary/15 cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 border-l-2 border-l-primary shadow-sm shadow-primary/5'
+                                  : 'border-border bg-secondary/5 hover:border-primary/20'
+                              }`}
+                              onClick={() => handleViewDiff(file)}
+                            >
+                              <span className={`truncate pr-2 font-mono text-[11px] ${isSelected ? 'text-primary font-medium' : 'text-foreground'}`}>{file}</span>
+                              <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Staged files */}
                 {gitStatus.staged.length > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-green-400 uppercase px-1">
-                      <span>Staged Changes ({gitStatus.staged.length})</span>
+                    <div
+                      className="flex items-center justify-between text-[10px] font-semibold text-green-400 uppercase px-1 cursor-pointer select-none hover:text-green-300"
+                      onClick={() => setGitCollapsed((prev) => ({ ...prev, staged: !prev.staged }))}
+                    >
+                      <div className="flex items-center gap-1">
+                        {gitCollapsed.staged ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                        <span>Staged Changes ({gitStatus.staged.length})</span>
+                      </div>
                       <CheckCircle size={10} />
                     </div>
-                    <div className="space-y-1">
-                      {gitStatus.staged.map((file) => (
-                        <div
-                          key={file}
-                          className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleViewDiff(file)}
-                        >
-                          <span className="truncate pr-2 font-mono text-[11px] text-foreground">{file}</span>
-                          <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                    {!gitCollapsed.staged && (
+                      <div className="space-y-1">
+                        {gitStatus.staged.map((file) => {
+                          const isSelected = selectedFilePath === file && !selectedCommitHash
+                          return (
+                            <div
+                              key={file}
+                              className={`group flex items-center justify-between text-xs rounded border px-2 py-1.5 hover:bg-secondary/15 cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 border-l-2 border-l-primary shadow-sm shadow-primary/5'
+                                  : 'border-border bg-secondary/5 hover:border-primary/20'
+                              }`}
+                              onClick={() => handleViewDiff(file)}
+                            >
+                              <span className={`truncate pr-2 font-mono text-[11px] ${isSelected ? 'text-primary font-medium' : 'text-foreground'}`}>{file}</span>
+                              <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Untracked files */}
                 {gitStatus.untracked.length > 0 && (
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase px-1">
-                      <span>Untracked Files ({gitStatus.untracked.length})</span>
+                    <div
+                      className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase px-1 cursor-pointer select-none hover:text-foreground"
+                      onClick={() => setGitCollapsed((prev) => ({ ...prev, untracked: !prev.untracked }))}
+                    >
+                      <div className="flex items-center gap-1">
+                        {gitCollapsed.untracked ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+                        <span>Untracked Files ({gitStatus.untracked.length})</span>
+                      </div>
                       <FileCode size={10} />
                     </div>
-                    <div className="space-y-1">
-                      {gitStatus.untracked.map((file) => (
-                        <div
-                          key={file}
-                          className="group flex items-center justify-between text-xs rounded border border-border bg-secondary/5 px-2 py-1.5 hover:bg-secondary/15 hover:border-primary/20 cursor-pointer"
-                          onClick={() => handleViewDiff(file)}
-                        >
-                          <span className="truncate pr-2 font-mono text-[11px] text-muted-foreground">{file}</span>
-                          <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                        </div>
-                      ))}
-                    </div>
+                    {!gitCollapsed.untracked && (
+                      <div className="space-y-1">
+                        {gitStatus.untracked.map((file) => {
+                          const isSelected = selectedFilePath === file && !selectedCommitHash
+                          return (
+                            <div
+                              key={file}
+                              className={`group flex items-center justify-between text-xs rounded border px-2 py-1.5 hover:bg-secondary/15 cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-primary bg-primary/10 border-l-2 border-l-primary shadow-sm shadow-primary/5'
+                                  : 'border-border bg-secondary/5 hover:border-primary/20'
+                              }`}
+                              onClick={() => handleViewDiff(file)}
+                            >
+                              <span className={`truncate pr-2 font-mono text-[11px] ${isSelected ? 'text-primary font-medium' : 'text-muted-foreground'}`}>{file}</span>
+                              <Eye size={11} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -649,15 +798,18 @@ export function AgentManagerPanel({
                 <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">
                   Commit History
                 </div>
-                <div className="border border-border/50 rounded-lg overflow-hidden divide-y divide-border/45 bg-[#0d0d0d]">
+                <div className="border border-border/50 rounded-lg overflow-hidden divide-y divide-border/45 bg-card">
                   {gitLogs.map((log) => {
                     const isExpanded = expandedCommits[log.hash] ?? false
                     const fileData = commitFiles[log.hash]
+                    const isCommitSelected = selectedCommitHash === log.hash && !selectedCommitFile
                     return (
                       <div key={log.hash}>
                         {/* Commit header row — click to expand */}
                         <div
-                          className="flex items-start gap-2 p-2 cursor-pointer hover:bg-secondary/10 transition-colors select-none"
+                          className={`flex items-start gap-2 p-2 cursor-pointer hover:bg-secondary/10 transition-colors select-none ${
+                            isCommitSelected ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                          }`}
                           onClick={() => toggleCommit(log.hash)}
                         >
                           <span className="mt-0.5 shrink-0 text-muted-foreground">
@@ -691,16 +843,23 @@ export function AgentManagerPanel({
                               <div className="py-2 px-4 text-[10px] text-muted-foreground">No files found.</div>
                             ) : (
                               <div className="divide-y divide-border/20">
-                                {fileData.files.map((file) => (
-                                  <div
-                                    key={file}
-                                    className="group flex items-center justify-between px-4 py-1.5 hover:bg-secondary/10 cursor-pointer transition-colors"
-                                    onClick={() => handleViewCommitFileDiff(log.hash, file)}
-                                  >
-                                    <span className="font-mono text-[10px] text-foreground truncate pr-2">{file}</span>
-                                    <Eye size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                  </div>
-                                ))}
+                                {fileData.files.map((file) => {
+                                  const isFileSelected = selectedCommitFile?.commitHash === log.hash && selectedCommitFile?.file === file
+                                  return (
+                                    <div
+                                      key={file}
+                                      className={`group flex items-center justify-between px-4 py-1.5 cursor-pointer transition-colors ${
+                                        isFileSelected
+                                          ? 'bg-primary/10 border-l-2 border-l-primary text-primary font-semibold'
+                                          : 'hover:bg-secondary/10 hover:text-foreground'
+                                      }`}
+                                      onClick={() => handleViewCommitFileDiff(log.hash, file)}
+                                    >
+                                      <span className="font-mono text-[10px] truncate pr-2">{file}</span>
+                                      <Eye size={10} className="text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                    </div>
+                                  )
+                                })}
                               </div>
                             )}
                           </div>
@@ -718,7 +877,7 @@ export function AgentManagerPanel({
       {/* --- DIFF PREVIEW DIALOG MODAL --- */}
       {diffFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl h-[80vh] flex flex-col rounded-lg border border-border bg-[#0a0a0a] shadow-2xl overflow-hidden">
+          <div className="w-full max-w-3xl h-[80vh] flex flex-col rounded-lg border border-border bg-background shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex h-11 items-center justify-between border-b border-border bg-card px-4">
               <div className="flex items-center gap-2">
@@ -756,6 +915,46 @@ export function AgentManagerPanel({
           </div>
         </div>
       )}
+
+      {/* --- CHECKOUT CONFLICT DIALOG MODAL --- */}
+      {checkoutConflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md flex flex-col rounded-lg border border-destructive/50 bg-[#0a0a0a] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center gap-2 border-b border-border bg-destructive/10 px-4 py-3">
+              <AlertTriangle size={16} className="text-destructive shrink-0" />
+              <span className="text-sm font-semibold text-destructive">Branch Checkout Conflict</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Cannot switch to <code className="text-foreground font-mono bg-secondary/20 px-1 rounded">{checkoutConflict.branchName}</code> — the following untracked files in your workspace would be overwritten:
+              </p>
+              <div className="rounded border border-border bg-secondary/5 divide-y divide-border/30 max-h-40 overflow-y-auto">
+                {checkoutConflict.files.map((f) => (
+                  <div key={f} className="px-3 py-1.5 font-mono text-[11px] text-foreground">{f}</div>
+                ))}
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Choosing "Move aside &amp; retry" will move these files to a timestamped backup folder inside your workspace, then complete the checkout.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-4 py-3 bg-card">
+              <button
+                className="rounded px-3 py-1.5 text-xs text-muted-foreground hover:bg-secondary transition-colors"
+                onClick={() => setCheckoutConflict(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+                onClick={handleMoveAsideAndRetry}
+              >
+                Move aside &amp; retry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

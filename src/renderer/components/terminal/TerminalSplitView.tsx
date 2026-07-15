@@ -19,7 +19,7 @@ export function TerminalSplitView({
   if (node.type === 'leaf') {
     if (!node.sessionId) {
       return (
-        <div className="flex h-full items-center justify-center text-sm text-muted-foreground bg-[#0a0a0a]">
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground bg-background">
           No active session
         </div>
       )
@@ -31,6 +31,7 @@ export function TerminalSplitView({
         }`}
       >
         <TerminalPane
+          key={node.sessionId}
           sessionId={node.sessionId}
           isActive={activeSessionId === node.sessionId}
           onActivate={() => onActivateSession(node.sessionId)}

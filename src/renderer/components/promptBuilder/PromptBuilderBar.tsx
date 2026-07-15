@@ -143,7 +143,7 @@ export function PromptBuilderBar({
       {/* Autocomplete Popup */}
       {autocompleteQuery !== null && filteredPinnedFiles.length > 0 && (
         <div
-          className="absolute z-50 w-64 rounded-md border border-border bg-[#0f0f0f] shadow-xl max-h-48 overflow-y-auto p-1 text-xs"
+          className="absolute z-50 w-64 rounded-md border border-border bg-background shadow-xl max-h-48 overflow-y-auto p-1 text-xs"
           style={{ bottom: '100%', left: '12px', marginBottom: '8px' }}
         >
           <div className="px-2 py-1 text-[10px] text-muted-foreground uppercase tracking-wider font-semibold border-b border-border/40 mb-1">
@@ -200,7 +200,7 @@ export function PromptBuilderBar({
           </button>
 
           {showAttachMenu && (
-            <div className="absolute bottom-10 left-0 z-50 w-56 rounded-md border border-border bg-[#0f0f0f] shadow-lg max-h-48 overflow-y-auto p-1 text-xs">
+            <div className="absolute bottom-10 left-0 z-50 w-56 rounded-md border border-border bg-background shadow-lg max-h-48 overflow-y-auto p-1 text-xs">
               <div className="px-2 py-1.5 font-semibold text-muted-foreground border-b border-border/40">
                 Attach Pinned File
               </div>

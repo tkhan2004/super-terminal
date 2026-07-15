@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { fileWatcher } from './fileWatcher'
@@ -16,6 +16,7 @@ export function registerFsHandlers(): void {
   ipcMain.handle('fs:listAllFiles', handleListAllFiles)
   ipcMain.handle('fs:watch:subscribe', handleWatchSubscribe)
   ipcMain.handle('fs:watch:unsubscribe', handleWatchUnsubscribe)
+  ipcMain.handle('fs:readFile', handleReadFile)
 }
 
 const watchRoots = new Map<string, string>()
@@ -24,7 +25,7 @@ async function handleReadDir(_event: unknown, dirPath: string): Promise<DirEntry
   try {
     const entries = readdirSync(dirPath)
     return entries
-      .filter((name) => !name.startsWith('.'))
+      .filter((name) => name !== '.git')
       .map((name) => {
         const fullPath = join(dirPath, name)
         const stat = statSync(fullPath)
@@ -80,14 +81,20 @@ function getFilesRecursive(dir: string, baseDir: string, filesList: string[] = [
   try {
     const entries = readdirSync(dir)
     for (const entry of entries) {
-      if (entry.startsWith('.') && entry !== '.gitignore') continue
+      // Dotfiles like .claude, .env are allowed now. .git is explicitly ignored below.
       if (
         entry === 'node_modules' ||
         entry === 'dist' ||
         entry === 'out' ||
         entry === 'build' ||
         entry === '.next' ||
-        entry === '.git'
+        entry === '.git' ||
+        entry === '.venv' ||
+        entry === 'venv' ||
+        entry === 'env' ||
+        entry === '.pytest_cache' ||
+        entry === '.ruff_cache' ||
+        entry === '.mypy_cache'
       ) {
         continue
       }
@@ -108,4 +115,12 @@ function getFilesRecursive(dir: string, baseDir: string, filesList: string[] = [
 
 async function handleListAllFiles(_event: unknown, rootPath: string): Promise<string[]> {
   return getFilesRecursive(rootPath, rootPath)
+}
+
+async function handleReadFile(_event: unknown, filePath: string): Promise<string> {
+  try {
+    return readFileSync(filePath, 'utf8')
+  } catch (err) {
+    return `Error reading file: ${String(err)}`
+  }
 }

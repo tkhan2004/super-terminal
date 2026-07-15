@@ -11,7 +11,27 @@ export interface FileWatcherEvents {
   ready: () => void
 }
 
-const IGNORED = ['node_modules', '.git', 'dist', 'build', 'out', 'release', '.next', 'coverage']
+const IGNORED_NAMES = new Set([
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  'release',
+  '.next',
+  'coverage',
+  '.venv',
+  'venv',
+  'env',
+  '.pytest_cache',
+  '.ruff_cache',
+  '.mypy_cache',
+  '.eslintcache',
+  'cache',
+  '.cache',
+  '.turbo',
+  '.yarn'
+])
 
 export class FileWatcher extends EventEmitter {
   private watchers = new Map<string, chokidar.FSWatcher>()
@@ -21,7 +41,10 @@ export class FileWatcher extends EventEmitter {
     if (this.watchers.has(watchId)) return
 
     const watcher = chokidar.watch(rootPath, {
-      ignored: IGNORED.map((dir) => `**/${dir}/**`),
+      ignored: (path) => {
+        const parts = path.split(/[\\/]/)
+        return parts.some((part) => IGNORED_NAMES.has(part))
+      },
       persistent: true,
       ignoreInitial: false,
       depth: 10,

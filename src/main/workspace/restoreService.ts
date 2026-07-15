@@ -11,6 +11,7 @@ export interface RestoreResult {
   layout: WorkspaceLayout
   tasks?: Task[]
   pinnedFiles?: string[]
+  timeline?: Record<string, import('@shared/types/session').TimelineEvent[]>
 }
 
 export class RestoreService {
@@ -68,7 +69,8 @@ export class RestoreService {
       sessions: restoredSessions,
       layout,
       tasks: state.tasks,
-      pinnedFiles: state.pinnedFiles
+      pinnedFiles: state.pinnedFiles,
+      timeline: state.timeline
     }
   }
 
@@ -77,14 +79,16 @@ export class RestoreService {
     sessions: Session[],
     layout: WorkspaceLayout,
     tasks?: Task[],
-    pinnedFiles?: string[]
+    pinnedFiles?: string[],
+    timeline?: Record<string, import('@shared/types/session').TimelineEvent[]>
   ): void {
     this.repo.saveWorkspaceState({
       workspace,
       sessions,
       layout,
       tasks,
-      pinnedFiles
+      pinnedFiles,
+      timeline
     })
   }
 

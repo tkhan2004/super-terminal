@@ -1,4 +1,5 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, shell, dialog } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 import { registerIpcHandlers, setMainWindow } from './ipc/registerIpcHandlers'
@@ -20,8 +21,34 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST
 
 let win: BrowserWindow | null = null
+let splash: BrowserWindow | null = null
+
+async function createSplashWindow(): Promise<void> {
+  splash = new BrowserWindow({
+    width: 480,
+    height: 320,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    center: true,
+    backgroundColor: '#0a0a0a',
+    webPreferences: {
+      sandbox: true
+    }
+  })
+
+  if (VITE_DEV_SERVER_URL) {
+    await splash.loadURL(`${VITE_DEV_SERVER_URL}/splash.html`)
+  } else {
+    await splash.loadFile(resolve(RENDERER_DIST, 'splash.html'))
+  }
+}
 
 async function createWindow(): Promise<void> {
+  logger.info('Initializing Splash Window...')
+  await createSplashWindow()
+
   logger.info('Initializing Main BrowserWindow...')
   win = new BrowserWindow({
     width: 1280,
@@ -42,7 +69,14 @@ async function createWindow(): Promise<void> {
 
   win.on('ready-to-show', () => {
     logger.info('MainWindow is ready to show. Displaying window...')
+    if (splash) {
+      splash.close()
+      splash = null
+    }
     win?.show()
+    
+    // Check for updates shortly after app shows
+    setTimeout(setupAutoUpdater, 3000)
   })
 
   setMainWindow(win)
@@ -81,3 +115,33 @@ app.whenReady().then(() => {
   logger.info('Electron Application Ready. Spawning MainWindow...')
   createWindow()
 })
+
+function setupAutoUpdater(): void {
+  // Only run autoUpdater in production
+  if (app.isPackaged) {
+    autoUpdater.logger = logger
+    
+    autoUpdater.on('update-downloaded', (info) => {
+      logger.info('Update downloaded successfully, prompting user to restart')
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Update Ready',
+        message: `Version ${info.version} of Super Terminal has been downloaded. Restart the application to apply the update?`,
+        buttons: ['Restart Now', 'Update on Exit'],
+        defaultId: 0,
+        cancelId: 1
+      }).then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall()
+        }
+      })
+    })
+
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      logger.error('Error running autoUpdater:', err)
+    })
+  } else {
+    logger.info('AutoUpdater is disabled in development mode')
+  }
+}
+

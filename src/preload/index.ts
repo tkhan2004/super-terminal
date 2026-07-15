@@ -39,8 +39,9 @@ const api = {
       sessions: import('@shared/types/session').Session[],
       layout: import('@shared/types/workspace').WorkspaceLayout,
       tasks?: import('@shared/types/task').Task[],
-      pinnedFiles?: string[]
-    ) => invoke('workspace:saveState', workspace, sessions, layout, tasks, pinnedFiles),
+      pinnedFiles?: string[],
+      timeline?: Record<string, import('@shared/types/session').TimelineEvent[]>
+    ) => invoke('workspace:saveState', workspace, sessions, layout, tasks, pinnedFiles, timeline),
     restore: (id: string) => invoke('workspace:restore', id)
   },
 
@@ -68,6 +69,7 @@ const api = {
   fs: {
     readDir: (path: string) => invoke('fs:readDir', path),
     listAllFiles: (path: string) => invoke('fs:listAllFiles', path),
+    readFile: (path: string) => invoke('fs:readFile', path),
     watch: (rootPath: string) => invoke('fs:watch:subscribe', rootPath),
     unwatch: (watchId: string) => invoke('fs:watch:unsubscribe', watchId),
     onWatchEvent: (
@@ -88,9 +90,28 @@ const api = {
     log: (cwd: string, limit?: number) => invoke('git:log', cwd, limit),
     branches: (cwd: string) => invoke('git:branches', cwd),
     checkout: (cwd: string, branchName: string) => invoke('git:checkout', cwd, branchName),
+    moveAsideAndCheckout: (cwd: string, branchName: string, conflictingFiles: string[]) =>
+      invoke('git:moveAsideAndCheckout', cwd, branchName, conflictingFiles),
     showFiles: (cwd: string, commitHash: string) => invoke('git:showFiles', cwd, commitHash),
     commitDiff: (cwd: string, commitHash: string, filePath: string) =>
-      invoke('git:commitDiff', cwd, commitHash, filePath)
+      invoke('git:commitDiff', cwd, commitHash, filePath),
+    push: (cwd: string) => invoke('git:push', cwd)
+  },
+  claude: {
+    getCredentials: () => invoke('claude:getCredentials'),
+    getQuota: () => invoke('claude:getQuota')
+  },
+  commandcode: {
+    getQuota: () => invoke('commandcode:getQuota')
+  },
+  antigravity: {
+    getQuota: () => invoke('antigravity:getQuota')
+  },
+  quota: {
+    scanLogins: () => invoke('quota:scanLogins')
+  },
+  system: {
+    checkCliInstalled: (cmd: string) => invoke('system:checkCliInstalled', cmd)
   }
 }
 
