@@ -194,13 +194,21 @@ export class PtySession extends EventEmitter {
 
   write(data: string): void {
     if (!this.exited) {
-      this.pty.write(data)
+      try {
+        this.pty.write(data)
+      } catch (err) {
+        console.error(`[PtySession] Error writing to PTY session ${this.id}:`, err)
+      }
     }
   }
 
   resize(cols: number, rows: number): void {
     if (!this.exited) {
-      this.pty.resize(cols, rows)
+      try {
+        this.pty.resize(cols, rows)
+      } catch (err) {
+        console.error(`[PtySession] Error resizing PTY session ${this.id}:`, err)
+      }
     }
   }
 
