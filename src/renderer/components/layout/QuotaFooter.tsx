@@ -207,7 +207,7 @@ export function QuotaFooter() {
                 key={key}
                 onClick={() => openSettings(key, quota)}
                 className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
-                title={`Configure ${quota.name} Quota`}
+                title={`${quota.name} Quota Details`}
               >
                 <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
                 {quota.isLoggedIn ? (
@@ -252,7 +252,7 @@ export function QuotaFooter() {
               <div className="flex items-center gap-2">
                 <Shield className="text-primary" size={16} />
                 <h3 className="text-sm font-semibold text-foreground">
-                  Configure {quotas[activeCli].name}
+                  {quotas[activeCli].name} Details
                 </h3>
               </div>
               <button 
