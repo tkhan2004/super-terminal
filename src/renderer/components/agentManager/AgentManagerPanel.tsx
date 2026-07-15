@@ -553,9 +553,9 @@ export function AgentManagerPanel({
               </div>
 
               {gitStatus ? (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full min-w-0">
                   <select
-                    className="flex-1 bg-background border border-border/80 text-xs rounded px-2 py-1 focus:outline-none focus:border-primary font-medium"
+                    className="flex-grow w-full min-w-0 bg-background border border-border/80 text-xs rounded px-2 py-1 focus:outline-none focus:border-primary font-medium truncate"
                     value={gitStatus.branch}
                     onChange={(e) => handleBranchSwitch(e.target.value)}
                   >
