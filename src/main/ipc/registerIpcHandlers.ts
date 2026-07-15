@@ -49,6 +49,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
   ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
   ipcMain.handle('quota:scanLogins', handleQuotaScanLogins)
+  ipcMain.handle('commandcode:getQuota', handleCommandcodeGetQuota)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -509,4 +510,62 @@ async function handleQuotaScanLogins(): Promise<{
     !!process.env.ANTIGRAVITY_AGENT
 
   return { claude, codex, antigravity, commandcodeai, opencode }
+}
+
+async function handleCommandcodeGetQuota(): Promise<{
+  success: boolean
+  fiveHourUsed?: number
+  fiveHourCap?: number
+  fiveHourReset?: string
+  weeklyUsed?: number
+  weeklyCap?: number
+  weeklyReset?: string
+  error?: string
+}> {
+  try {
+    let apiKey = process.env.COMMAND_CODE_API_KEY
+    if (!apiKey) {
+      const authPath = join(homedir(), '.commandcode', 'auth.json')
+      if (existsSync(authPath)) {
+        const auth = JSON.parse(readFileSync(authPath, 'utf8'))
+        apiKey = auth.apiKey
+      }
+    }
+
+    if (!apiKey) {
+      return { success: false, error: 'No API Key found' }
+    }
+
+    const res = await fetch('https://api.commandcode.ai/alpha/billing/credits', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`
+      }
+    })
+
+    if (!res.ok) {
+      return { success: false, error: `API responded with status ${res.status}` }
+    }
+
+    const data = await res.json() as any
+    const fiveHour = data.windowLimits?.fiveHour
+    const weekly = data.windowLimits?.weekly
+
+    const formatReset = (ts: number | undefined) => {
+      if (!ts) return undefined
+      const date = new Date(ts)
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' ' + date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    }
+
+    return {
+      success: true,
+      fiveHourUsed: fiveHour ? Math.round((fiveHour.used / fiveHour.cap) * 100) : undefined,
+      fiveHourCap: fiveHour?.cap,
+      fiveHourReset: formatReset(fiveHour?.resetAt),
+      weeklyUsed: weekly ? Math.round((weekly.used / weekly.cap) * 100) : undefined,
+      weeklyCap: weekly?.cap,
+      weeklyReset: formatReset(weekly?.resetAt)
+    }
+  } catch (err) {
+    return { success: false, error: String(err) }
+  }
 }

@@ -41,6 +41,19 @@ export interface IpcChannels {
       error?: string
     }
   }
+  'commandcode:getQuota': {
+    args: []
+    result: {
+      success: boolean
+      fiveHourUsed?: number
+      fiveHourCap?: number
+      fiveHourReset?: string
+      weeklyUsed?: number
+      weeklyCap?: number
+      weeklyReset?: string
+      error?: string
+    }
+  }
   'quota:scanLogins': {
     args: []
     result: {

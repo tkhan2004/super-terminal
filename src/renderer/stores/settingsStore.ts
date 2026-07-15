@@ -15,6 +15,12 @@ export interface CliQuota {
   weekUsed?: number
   weekReset?: string
   fableUsed?: number
+  fiveHourUsed?: number
+  fiveHourCap?: number
+  fiveHourReset?: string
+  weeklyUsed?: number
+  weeklyCap?: number
+  weeklyReset?: string
 }
 
 interface SettingsState {

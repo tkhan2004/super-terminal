@@ -97,6 +97,9 @@ const api = {
     getCredentials: () => invoke('claude:getCredentials'),
     getQuota: () => invoke('claude:getQuota')
   },
+  commandcode: {
+    getQuota: () => invoke('commandcode:getQuota')
+  },
   quota: {
     scanLogins: () => invoke('quota:scanLogins')
   }
