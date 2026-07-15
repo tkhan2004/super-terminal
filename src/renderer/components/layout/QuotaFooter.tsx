@@ -155,16 +155,6 @@ export function QuotaFooter() {
     }
   }
 
-  const handleSave = () => {
-    if (activeCli) {
-      updateQuota(activeCli, {
-        used: Number(used),
-        limit: Number(limit)
-      })
-      setActiveCli(null)
-    }
-  }
-
   return (
     <>
       <footer className="flex h-7 items-center justify-between border-t border-border bg-card/80 px-3 text-[11px] select-none text-muted-foreground shrink-0 z-20 overflow-x-auto [&::-webkit-scrollbar]:hidden">
@@ -189,19 +179,7 @@ export function QuotaFooter() {
           {Object.entries(quotas).map(([key, quota]) => {
             if (key === 'claude') {
               if (!quota.isLoggedIn) {
-                return (
-                  <div 
-                    key={key}
-                    onClick={() => openSettings(key, quota)}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
-                    title="Claude Subscription Details"
-                  >
-                    <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
-                    <span className="text-muted-foreground/45 italic">
-                      Signed Out
-                    </span>
-                  </div>
-                )
+                return null
               }
 
               const hasRealQuota = quota.sessionUsed !== undefined
@@ -249,19 +227,7 @@ export function QuotaFooter() {
 
             if (key === 'commandcodeai') {
               if (!quota.isLoggedIn) {
-                return (
-                  <div 
-                    key={key}
-                    onClick={() => openSettings(key, quota)}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
-                    title="Commandcodeai Details"
-                  >
-                    <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
-                    <span className="text-muted-foreground/45 italic">
-                      Signed Out
-                    </span>
-                  </div>
-                )
+                return null
               }
 
               const hasRealQuota = quota.fiveHourUsed !== undefined
@@ -309,19 +275,7 @@ export function QuotaFooter() {
 
             if (key === 'antigravity') {
               if (!quota.isLoggedIn) {
-                return (
-                  <div 
-                    key={key}
-                    onClick={() => openSettings(key, quota)}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
-                    title="Antigravity Details"
-                  >
-                    <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
-                    <span className="text-muted-foreground/45 italic">
-                      Signed Out
-                    </span>
-                  </div>
-                )
+                return null
               }
 
               const hasRealQuota = quota.fiveHourUsed !== undefined
@@ -365,6 +319,10 @@ export function QuotaFooter() {
                   )}
                 </div>
               )
+            }
+
+            if (!quota.isLoggedIn) {
+              return null
             }
 
             const pct = quota.limit > 0 ? ((quota.limit - quota.used) / quota.limit) * 100 : 0
@@ -707,29 +665,7 @@ export function QuotaFooter() {
                   </div>
                 )}
 
-                {/* Usage Stats (manual override — no public usage API for this CLI yet) */}
-                {quotas[activeCli].isLoggedIn && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <span className="font-medium text-foreground">Used ({quotas[activeCli].unit}):</span>
-                      <input
-                        type="number"
-                        value={used}
-                        onChange={(e) => setUsed(Number(e.target.value))}
-                        className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <span className="font-medium text-foreground">Limit ({quotas[activeCli].unit}):</span>
-                      <input
-                        type="number"
-                        value={limit}
-                        onChange={(e) => setLimit(Number(e.target.value))}
-                        className="w-full rounded border border-border bg-background px-3 py-2 text-xs text-foreground focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                  </div>
-                )}
+                {/* Usage Stats form removed per user request */}
 
                 {/* Warnings / Tips */}
                 {quotas[activeCli].isLoggedIn && used >= limit && limit > 0 && (
@@ -741,14 +677,7 @@ export function QuotaFooter() {
 
                 {/* Actions */}
                 <div className="flex gap-2 mt-5 pt-3 border-t border-border">
-                  {quotas[activeCli].isLoggedIn ? (
-                    <button
-                      onClick={handleSave}
-                      className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors"
-                    >
-                      Save Usage Override
-                    </button>
-                  ) : (
+                  {!quotas[activeCli].isLoggedIn && (
                     <button
                       onClick={scanLogins}
                       className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors flex items-center justify-center gap-1"
