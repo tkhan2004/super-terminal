@@ -1,4 +1,4 @@
-export type AgentType = 'shell' | 'claude' | 'codex' | 'gemini' | 'opencode' | 'amp' | 'unknown'
+export type AgentType = 'shell' | 'claude' | 'codex' | 'gemini' | 'opencode' | 'amp' | 'unknown' | 'antigravity' | 'commandcodeai'
 
 export type SessionStatus = 'running' | 'exited' | 'resumable'
 

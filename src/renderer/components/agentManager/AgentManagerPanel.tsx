@@ -44,7 +44,9 @@ const agentTypeColors: Record<AgentType, string> = {
   gemini: 'bg-purple-500',
   opencode: 'bg-cyan-500',
   amp: 'bg-yellow-500',
-  unknown: 'bg-gray-500'
+  unknown: 'bg-gray-500',
+  antigravity: 'bg-purple-600',
+  commandcodeai: 'bg-amber-500'
 }
 
 const statusColors: Record<SessionStatus, string> = {

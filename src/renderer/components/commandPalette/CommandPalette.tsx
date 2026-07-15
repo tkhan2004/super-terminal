@@ -172,12 +172,42 @@ export function CommandPalette({
         }
       },
       {
-        id: 'new-gemini',
-        title: 'New Session: Gemini Agent',
+        id: 'new-codex',
+        title: 'New Session: Codex Agent',
+        category: 'Actions',
+        icon: <Terminal className="text-green-450" size={14} />,
+        action: () => {
+          onCreateSession('codex', 'codex')
+          onClose()
+        }
+      },
+      {
+        id: 'new-opencode',
+        title: 'New Session: Opencode Agent',
+        category: 'Actions',
+        icon: <Terminal className="text-cyan-400" size={14} />,
+        action: () => {
+          onCreateSession('9router', 'opencode')
+          onClose()
+        }
+      },
+      {
+        id: 'new-commandcodeai',
+        title: 'New Session: Commandcodeai Agent',
+        category: 'Actions',
+        icon: <Terminal className="text-amber-400" size={14} />,
+        action: () => {
+          onCreateSession('commandcode', 'commandcodeai')
+          onClose()
+        }
+      },
+      {
+        id: 'new-antigravity',
+        title: 'New Session: Antigravity Agent',
         category: 'Actions',
         icon: <Terminal className="text-purple-400" size={14} />,
         action: () => {
-          onCreateSession('gemini', 'gemini')
+          onCreateSession('agy', 'antigravity')
           onClose()
         }
       },
