@@ -32,7 +32,7 @@ export function AgentSetupWizardModal({ isOpen, onClose, onCreateSession }: Agen
       id: 'codex',
       name: 'Codex CLI',
       command: 'codex',
-      npmPackage: '@codex-space/cli',
+      npmPackage: '@openai/codex',
       description: 'AI coding assistant companion running in the shell.',
       installed: false,
       loading: true
@@ -59,7 +59,7 @@ export function AgentSetupWizardModal({ isOpen, onClose, onCreateSession }: Agen
       id: 'opencode',
       name: 'OpenCode',
       command: 'opencode',
-      npmPackage: 'opencode-cli',
+      npmPackage: 'opencode-ai',
       description: 'Open-source CLI terminal agent supporting local LLM execution.',
       installed: false,
       loading: true

@@ -7,7 +7,10 @@ on:
 
 jobs:
   release:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     permissions:
       contents: write
@@ -32,7 +35,14 @@ jobs:
       - name: Build production bundle
         run: pnpm run build
 
-      - name: Package & Publish release assets
+      - name: Package & Publish Windows release assets
+        if: matrix.os == 'windows-latest'
         run: pnpm exec electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package & Publish macOS release assets
+        if: matrix.os == 'macos-latest'
+        run: pnpm exec electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -6,7 +6,6 @@ import { AgentManagerPanel } from '../agentManager/AgentManagerPanel'
 import { ExplorerTree } from '../explorer/ExplorerTree'
 import { TerminalSplitView } from '../terminal/TerminalSplitView'
 import { ContextPanel } from '../explorer/ContextPanel'
-import { PromptBuilderBar } from '../promptBuilder/PromptBuilderBar'
 import { CommandPalette } from '../commandPalette/CommandPalette'
 import { useTaskStore } from '../../stores/taskStore'
 import { useTimelineStore } from '../../stores/timelineStore'
@@ -93,6 +92,8 @@ interface WorkspacePaneProps {
   isActive: boolean
   onSaveStateRef: React.MutableRefObject<Record<string, () => Promise<void>>>
 }
+
+const isMac = typeof window !== 'undefined' && navigator.userAgent.toLowerCase().includes('mac')
 
 export function WorkspacePane({ workspace, isActive, onSaveStateRef }: WorkspacePaneProps) {
   const [tabs, setTabs] = useState<TerminalTab[]>([])
@@ -181,31 +182,6 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     }
   }, [assignSessionToTask, unassignSessionFromTask])
 
-  const handleSendPrompt = useCallback((text: string, attachedFiles: string[]) => {
-    if (!activeTabId) return
-    const composed = text + (attachedFiles.length > 0 ? ' ' + attachedFiles.map(f => `@${f}`).join(' ') : '')
-    window.api.session.write(activeTabId, composed + '\n')
-
-    if (attachedFiles.length > 0) {
-      setSessionReferences((prev) => {
-        const current = prev[activeTabId] ?? []
-        const updated = [...current]
-        for (const file of attachedFiles) {
-          if (!updated.includes(file)) {
-            updated.push(file)
-          }
-        }
-        return { ...prev, [activeTabId]: updated }
-      })
-    }
-
-    useTimelineStore.getState().addEvent(activeTabId, {
-      type: 'prompt',
-      title: 'Prompt Sent',
-      description: text + (attachedFiles.length > 0 ? ` (attached: ${attachedFiles.join(', ')})` : ''),
-      status: 'info'
-    })
-  }, [activeTabId])
 
   const createTab = useCallback(
     async (command: string, agentType: AgentType) => {
@@ -439,28 +415,6 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     }
     return undefined
   }, [tabs, activeTabId, pinnedFiles, tabLayouts, saveState])
-
-  // Keyboard shortcut listener
-  useEffect(() => {
-    if (!isActive) return undefined
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault()
-        setShowCommandPalette((v) => !v)
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
-        e.preventDefault()
-        handleSplit('vertical')
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-        e.preventDefault()
-        handleSplit('horizontal')
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, activeTabId, tabLayouts])
-
   const handleSplit = useCallback(
     (direction: 'horizontal' | 'vertical') => {
       if (!activeTabId || !workspace) return
@@ -675,7 +629,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
             <button
               className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border border-transparent hover:border-border/50"
               onClick={() => handleSplit('vertical')}
-              title="Split pane vertically (Ctrl+\)"
+              title={isMac ? "Split pane vertically (⌘\\)" : "Split pane vertically (Ctrl+\\)"}
             >
               <span className="font-mono text-[10px]">⬜⬜</span>
               Vertical
@@ -683,7 +637,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
             <button
               className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border border-transparent hover:border-border/50"
               onClick={() => handleSplit('horizontal')}
-              title="Split pane horizontally (Ctrl+-)"
+              title={isMac ? "Split pane horizontally (⌘-)" : "Split pane horizontally (Ctrl+-)"}
             >
               <span className="font-mono text-[10px]">🟰</span>
               Horizontal
@@ -756,11 +710,6 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
                   })
                 )}
               </div>
-              <PromptBuilderBar
-                activeSessionId={activeTabId}
-                pinnedFiles={pinnedFiles}
-                onSendPrompt={handleSendPrompt}
-              />
             </div>
           }
           right={

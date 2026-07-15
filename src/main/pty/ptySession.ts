@@ -134,9 +134,19 @@ export class PtySession extends EventEmitter {
       if (this.command.includes('claude')) {
         installCmd = 'npm install -g @anthropic-ai/claude-code'
       } else if (this.command.includes('codex')) {
-        installCmd = 'npm install -g @codex-ai/cli'
-      } else if (this.command.includes('9router') || this.command.includes('opencode')) {
-        installCmd = 'npm install -g @opencode/cli'
+        if (process.platform === 'win32') {
+          installCmd = 'powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"'
+        } else {
+          installCmd = 'curl -fsSL https://chatgpt.com/codex/install.sh | sh'
+        }
+      } else if (this.command.includes('9router')) {
+        installCmd = 'npm install -g 9router'
+      } else if (this.command.includes('opencode')) {
+        if (process.platform === 'win32') {
+          installCmd = 'npm install -g opencode-ai'
+        } else {
+          installCmd = 'curl -fsSL https://opencode.ai/install | bash'
+        }
       } else if (this.command.includes('commandcode')) {
         installCmd = 'npm install -g commandcode'
       } else if (this.command.includes('agy') || this.command.includes('antigravity')) {
