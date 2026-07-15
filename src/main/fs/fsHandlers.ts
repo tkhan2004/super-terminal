@@ -1,5 +1,5 @@
 import { ipcMain, BrowserWindow } from 'electron'
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, statSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { fileWatcher } from './fileWatcher'
@@ -16,6 +16,7 @@ export function registerFsHandlers(): void {
   ipcMain.handle('fs:listAllFiles', handleListAllFiles)
   ipcMain.handle('fs:watch:subscribe', handleWatchSubscribe)
   ipcMain.handle('fs:watch:unsubscribe', handleWatchUnsubscribe)
+  ipcMain.handle('fs:readFile', handleReadFile)
 }
 
 const watchRoots = new Map<string, string>()
@@ -114,4 +115,12 @@ function getFilesRecursive(dir: string, baseDir: string, filesList: string[] = [
 
 async function handleListAllFiles(_event: unknown, rootPath: string): Promise<string[]> {
   return getFilesRecursive(rootPath, rootPath)
+}
+
+async function handleReadFile(_event: unknown, filePath: string): Promise<string> {
+  try {
+    return readFileSync(filePath, 'utf8')
+  } catch (err) {
+    return `Error reading file: ${String(err)}`
+  }
 }

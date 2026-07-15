@@ -69,6 +69,7 @@ const api = {
   fs: {
     readDir: (path: string) => invoke('fs:readDir', path),
     listAllFiles: (path: string) => invoke('fs:listAllFiles', path),
+    readFile: (path: string) => invoke('fs:readFile', path),
     watch: (rootPath: string) => invoke('fs:watch:subscribe', rootPath),
     unwatch: (watchId: string) => invoke('fs:watch:unsubscribe', watchId),
     onWatchEvent: (

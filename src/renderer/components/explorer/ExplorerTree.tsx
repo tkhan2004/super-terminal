@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { DirEntry } from '@shared/types/ipc'
+import type { DirEntry, GitStatus } from '@shared/types/ipc'
 import { ChevronRight, ChevronDown, File, Folder, Pin, Eye, EyeOff } from 'lucide-react'
+import { MarkdownPreviewModal } from './MarkdownPreviewModal'
 
 interface ExplorerTreeProps {
   rootPath: string
@@ -26,6 +27,17 @@ export function ExplorerTree({
 }: ExplorerTreeProps) {
   const [tree, setTree] = useState<TreeNode[]>([])
   const [showHidden, setShowHidden] = useState(true)
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null)
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null)
+
+  const updateGitStatus = useCallback(async () => {
+    try {
+      const status = await window.api.git.status(rootPath)
+      setGitStatus(status)
+    } catch (err) {
+      console.error('Failed to load git status:', err)
+    }
+  }, [rootPath])
 
   const filterEntries = useCallback((nodes: TreeNode[]): TreeNode[] => {
     return nodes.filter(
@@ -61,6 +73,7 @@ export function ExplorerTree({
     let cancelled = false
 
     async function init() {
+      updateGitStatus()
       const entries = await loadDir(rootPath)
       if (cancelled) return
       setTree(
@@ -88,11 +101,12 @@ export function ExplorerTree({
         window.api.fs.unwatch(watchIdRef.current)
       }
     }
-  }, [rootPath, loadDir])
+  }, [rootPath, loadDir, updateGitStatus])
 
   useEffect(() => {
     const unsubscribe = window.api.fs.onWatchEvent((event) => {
       if (event.watchId !== watchId) return
+      updateGitStatus()
       // For simplicity, reload root on any change
       loadDir(rootPath).then((entries) => {
         setTree((prev) => {
@@ -115,7 +129,7 @@ export function ExplorerTree({
       })
     })
     return unsubscribe
-  }, [watchId, rootPath, loadDir])
+  }, [watchId, rootPath, loadDir, updateGitStatus])
 
   const handleToggle = useCallback(
     async (node: TreeNode) => {
@@ -180,6 +194,46 @@ export function ExplorerTree({
     const relativePath = node.entry.path.replace(rootPath, '').replace(/^[\\/]/, '')
     const isPinned = pinnedFiles.includes(relativePath)
 
+    const getGitStatusColor = (nodePath: string, isDirectory: boolean) => {
+      if (!gitStatus) return ''
+      const rel = nodePath.replace(rootPath, '').replace(/^[\\/]/, '').replace(/\\/g, '/')
+      
+      if (isDirectory) {
+        const folderPrefix = rel ? rel + '/' : ''
+        const hasMod = gitStatus.modified.some(p => p.startsWith(folderPrefix))
+        const hasStg = gitStatus.staged.some(p => p.startsWith(folderPrefix))
+        const hasUnt = gitStatus.untracked.some(p => p.startsWith(folderPrefix))
+        
+        if (hasMod) return 'text-amber-500 font-medium'
+        if (hasStg) return 'text-sky-500 font-medium'
+        if (hasUnt) return 'text-emerald-500 font-medium'
+        return ''
+      } else {
+        if (gitStatus.modified.some(p => p === rel)) return 'text-amber-500 font-medium'
+        if (gitStatus.staged.some(p => p === rel)) return 'text-sky-500 font-medium'
+        if (gitStatus.untracked.some(p => p === rel)) return 'text-emerald-500 font-medium'
+        return ''
+      }
+    }
+
+    const getGitBadge = (nodePath: string, isDirectory: boolean) => {
+      if (!gitStatus || isDirectory) return null
+      const rel = nodePath.replace(rootPath, '').replace(/^[\\/]/, '').replace(/\\/g, '/')
+      
+      if (gitStatus.modified.some(p => p === rel)) {
+        return <span className="text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-1 rounded shrink-0 ml-1.5 mr-1 font-bold" title="Modified">M</span>
+      }
+      if (gitStatus.staged.some(p => p === rel)) {
+        return <span className="text-[9px] bg-sky-500/10 text-sky-500 border border-sky-500/20 px-1 rounded shrink-0 ml-1.5 mr-1 font-bold" title="Staged">A</span>
+      }
+      if (gitStatus.untracked.some(p => p === rel)) {
+        return <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1 rounded shrink-0 ml-1.5 mr-1 font-bold" title="Untracked">U</span>
+      }
+      return null
+    }
+
+    const statusColorClass = getGitStatusColor(node.entry.path, node.entry.isDirectory)
+
     return (
       <div key={node.entry.path}>
         <div
@@ -187,7 +241,13 @@ export function ExplorerTree({
             !node.entry.isDirectory ? 'cursor-grab' : ''
           }`}
           style={{ paddingLeft: indent + 8 }}
-          onClick={() => node.entry.isDirectory && handleToggle(node)}
+          onClick={() => {
+            if (node.entry.isDirectory) {
+              handleToggle(node)
+            } else if (node.entry.name.toLowerCase().endsWith('.md')) {
+              setPreviewFilePath(node.entry.path)
+            }
+          }}
           draggable={!node.entry.isDirectory}
           onDragStart={(e) => !node.entry.isDirectory && handleDragStart(e, node.entry)}
         >
@@ -199,15 +259,16 @@ export function ExplorerTree({
                 ) : (
                   <ChevronRight size={12} className="shrink-0 text-muted-foreground" />
                 )}
-                <Folder size={14} className="shrink-0 text-blue-400" />
+                <Folder size={14} className={`shrink-0 ${statusColorClass ? statusColorClass.split(' ')[0] : 'text-blue-400'}`} />
               </>
             ) : (
               <>
                 <span className="w-3" />
-                <File size={14} className="shrink-0 text-muted-foreground" />
+                <File size={14} className={`shrink-0 ${statusColorClass ? statusColorClass.split(' ')[0] : 'text-muted-foreground'}`} />
               </>
             )}
-            <span className="truncate">{node.entry.name}</span>
+            <span className={`truncate ${statusColorClass}`}>{node.entry.name}</span>
+            {getGitBadge(node.entry.path, node.entry.isDirectory)}
           </div>
           {!node.entry.isDirectory && (
             <button
@@ -256,6 +317,12 @@ export function ExplorerTree({
           filterEntries(tree).map((node) => renderNode(node, 0))
         )}
       </div>
+      {previewFilePath && (
+        <MarkdownPreviewModal
+          filePath={previewFilePath}
+          onClose={() => setPreviewFilePath(null)}
+        />
+      )}
     </div>
   )
 }

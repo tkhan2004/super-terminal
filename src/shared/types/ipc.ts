@@ -18,6 +18,7 @@ export interface IpcChannels {
 
   'fs:readDir': { args: [string]; result: DirEntry[] }
   'fs:listAllFiles': { args: [string]; result: string[] }
+  'fs:readFile': { args: [string]; result: string }
   'fs:watch:subscribe': { args: [string]; result: string }
   'fs:watch:unsubscribe': { args: [string]; result: void }
 
