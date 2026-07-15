@@ -100,6 +100,9 @@ const api = {
   commandcode: {
     getQuota: () => invoke('commandcode:getQuota')
   },
+  antigravity: {
+    getQuota: () => invoke('antigravity:getQuota')
+  },
   quota: {
     scanLogins: () => invoke('quota:scanLogins')
   }

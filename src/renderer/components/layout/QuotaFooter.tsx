@@ -77,6 +77,29 @@ export function QuotaFooter() {
     }
   }, [updateQuota])
 
+  const fetchAntigravityQuota = useCallback(async () => {
+    setLoadingQuota(true)
+    try {
+      const res = await window.api.antigravity.getQuota()
+      if (res && res.success) {
+        updateQuota('antigravity', {
+          fiveHourUsed: res.fiveHourUsed,
+          fiveHourCap: 100,
+          fiveHourReset: res.fiveHourReset,
+          weeklyUsed: res.weeklyUsed,
+          weeklyCap: 100,
+          weeklyReset: res.weeklyReset,
+          used: res.fiveHourUsed ?? 0,
+          limit: 100
+        })
+      }
+    } catch (err) {
+      console.error('Failed to fetch Antigravity quota:', err)
+    } finally {
+      setLoadingQuota(false)
+    }
+  }, [updateQuota])
+
   useEffect(() => {
     const initScanner = async () => {
       await scanLogins()
@@ -87,9 +110,12 @@ export function QuotaFooter() {
       if (quotas.commandcodeai.isLoggedIn) {
         fetchCommandcodeQuota()
       }
+      if (quotas.antigravity.isLoggedIn) {
+        fetchAntigravityQuota()
+      }
     }
     initScanner()
-  }, [scanLogins, fetchClaudeQuota, fetchCommandcodeQuota, quotas.commandcodeai.isLoggedIn])
+  }, [scanLogins, fetchClaudeQuota, fetchCommandcodeQuota, fetchAntigravityQuota, quotas.commandcodeai.isLoggedIn, quotas.antigravity.isLoggedIn])
 
   useEffect(() => {
     const intervals: NodeJS.Timeout[] = []
@@ -106,8 +132,14 @@ export function QuotaFooter() {
       }, 60000))
     }
 
+    if (quotas.antigravity.isLoggedIn) {
+      intervals.push(setInterval(() => {
+        fetchAntigravityQuota()
+      }, 60000))
+    }
+
     return () => intervals.forEach(clearInterval)
-  }, [quotas.claude.isLoggedIn, quotas.commandcodeai.isLoggedIn, fetchClaudeQuota, fetchCommandcodeQuota])
+  }, [quotas.claude.isLoggedIn, quotas.commandcodeai.isLoggedIn, quotas.antigravity.isLoggedIn, fetchClaudeQuota, fetchCommandcodeQuota, fetchAntigravityQuota])
 
   const openSettings = async (key: string, quota: CliQuota) => {
     setActiveCli(key)
@@ -118,6 +150,8 @@ export function QuotaFooter() {
       fetchClaudeQuota()
     } else if (key === 'commandcodeai') {
       fetchCommandcodeQuota()
+    } else if (key === 'antigravity') {
+      fetchAntigravityQuota()
     }
   }
 
@@ -265,6 +299,66 @@ export function QuotaFooter() {
                       </div>
                       <span className={sessionTextColor}>{quota.fiveHourUsed}%</span>
                       <span className="text-[9px] text-muted-foreground/50">({quota.fiveHourReset})</span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground/50 italic">Loading usage...</span>
+                  )}
+                </div>
+              )
+            }
+
+            if (key === 'antigravity') {
+              if (!quota.isLoggedIn) {
+                return (
+                  <div 
+                    key={key}
+                    onClick={() => openSettings(key, quota)}
+                    className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
+                    title="Antigravity Details"
+                  >
+                    <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
+                    <span className="text-muted-foreground/45 italic">
+                      Signed Out
+                    </span>
+                  </div>
+                )
+              }
+
+              const hasRealQuota = quota.fiveHourUsed !== undefined
+              const sessionRemaining = hasRealQuota ? (100 - (quota.fiveHourUsed ?? 0)) : 100
+
+              let sessionBarColor = 'bg-emerald-500'
+              let sessionTextColor = 'text-emerald-500 font-semibold'
+              if (quota.fiveHourUsed !== undefined) {
+                if (quota.fiveHourUsed >= 80) {
+                  sessionBarColor = 'bg-rose-500'
+                  sessionTextColor = 'text-rose-500 font-semibold'
+                } else if (quota.fiveHourUsed >= 50) {
+                  sessionBarColor = 'bg-amber-500'
+                  sessionTextColor = 'text-amber-500 font-semibold'
+                }
+              }
+
+              return (
+                <div
+                  key={key}
+                  onClick={() => openSettings(key, quota)}
+                  className={`flex items-center gap-3 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group ${loadingQuota ? 'opacity-65' : ''}`}
+                  title="Antigravity Quota (click for full details)"
+                >
+                  <span className="font-semibold text-foreground flex items-center gap-1">
+                    {quota.name}
+                    {loadingQuota && <RefreshCw size={10} className="animate-spin" />}
+                  </span>
+
+                  {hasRealQuota ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground/80">5h:</span>
+                      <div className="w-10 h-1 bg-secondary rounded-full overflow-hidden">
+                        <div className={`h-full ${sessionBarColor}`} style={{ width: `${sessionRemaining}%` }} />
+                      </div>
+                      <span className={sessionTextColor}>{quota.fiveHourUsed}%</span>
+                      {quota.fiveHourReset && <span className="text-[9px] text-muted-foreground/50">({quota.fiveHourReset})</span>}
                     </div>
                   ) : (
                     <span className="text-muted-foreground/50 italic">Loading usage...</span>
@@ -501,6 +595,77 @@ export function QuotaFooter() {
                   <button 
                     onClick={() => {
                       fetchCommandcodeQuota()
+                    }}
+                    disabled={loadingQuota}
+                    className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-65"
+                  >
+                    <RefreshCw size={12} className={loadingQuota ? 'animate-spin' : ''} />
+                    Refresh Quota
+                  </button>
+                  <button 
+                    onClick={() => setActiveCli(null)}
+                    className="flex-1 rounded bg-secondary py-2 text-xs font-semibold text-secondary-foreground hover:bg-secondary/80 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (activeCli === 'antigravity' && quotas.antigravity.isLoggedIn) ? (
+              <div className="space-y-4 text-xs">
+                {/* Connection Status */}
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <span className="font-medium text-foreground">Auth Method:</span>
+                  <span className="text-emerald-500 font-semibold flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Detected — signed in
+                  </span>
+                </div>
+
+                {/* 5-Hour Session Info */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-foreground">5-Hour Rate Limit Usage:</span>
+                    <span className="text-primary font-bold">{quotas.antigravity.fiveHourUsed ?? 0}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden border border-border/50">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${quotas.antigravity.fiveHourUsed ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-muted-foreground flex justify-between">
+                    <span>Resets in:</span>
+                    <span className="font-mono font-medium text-foreground">{quotas.antigravity.fiveHourReset ?? 'Unknown'}</span>
+                  </div>
+                </div>
+
+                {/* Weekly Info */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-foreground">Weekly Rate Limit Usage (All Models):</span>
+                    <span className="text-amber-500 font-bold">{quotas.antigravity.weeklyUsed ?? 0}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-secondary rounded-full overflow-hidden border border-border/55">
+                    <div 
+                      className="h-full bg-amber-500 transition-all duration-300"
+                      style={{ width: `${quotas.antigravity.weeklyUsed ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-muted-foreground flex justify-between">
+                    <span>Resets in:</span>
+                    <span className="font-mono font-medium text-foreground">{quotas.antigravity.weeklyReset ?? 'Unknown'}</span>
+                  </div>
+                </div>
+
+                {/* Info Tip */}
+                <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
+                  These limits are computed based on rolling window caps retrieved from the local Antigravity TUI.
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-3 border-t border-border">
+                  <button 
+                    onClick={() => {
+                      fetchAntigravityQuota()
                     }}
                     disabled={loadingQuota}
                     className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-65"

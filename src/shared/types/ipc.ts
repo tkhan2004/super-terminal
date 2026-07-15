@@ -54,6 +54,17 @@ export interface IpcChannels {
       error?: string
     }
   }
+  'antigravity:getQuota': {
+    args: []
+    result: {
+      success: boolean
+      fiveHourUsed?: number
+      fiveHourReset?: string
+      weeklyUsed?: number
+      weeklyReset?: string
+      error?: string
+    }
+  }
   'quota:scanLogins': {
     args: []
     result: {

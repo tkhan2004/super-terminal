@@ -50,6 +50,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
   ipcMain.handle('quota:scanLogins', handleQuotaScanLogins)
   ipcMain.handle('commandcode:getQuota', handleCommandcodeGetQuota)
+  ipcMain.handle('antigravity:getQuota', handleAntigravityGetQuota)
 }
 
 async function handleWorkspaceList(): Promise<Workspace[]> {
@@ -568,4 +569,82 @@ async function handleCommandcodeGetQuota(): Promise<{
   } catch (err) {
     return { success: false, error: String(err) }
   }
+}
+
+async function handleAntigravityGetQuota(): Promise<{
+  success: boolean
+  fiveHourUsed?: number
+  fiveHourReset?: string
+  weeklyUsed?: number
+  weeklyReset?: string
+  error?: string
+}> {
+  return new Promise((resolve) => {
+    let resolved = false
+    let output = ''
+
+    const agyPath = process.platform === 'win32' ? 'agy.exe' : 'agy'
+    let ptyProcess: any
+
+    try {
+      const pty = require('node-pty')
+      ptyProcess = pty.spawn(agyPath, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: homedir(),
+        env: process.env
+      })
+
+      ptyProcess.onData((data: string) => {
+        output += data
+      })
+
+      const timer1 = setTimeout(() => {
+        if (!resolved) {
+          ptyProcess.write('/usage\r\n')
+        }
+      }, 2500)
+
+      const timer2 = setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          cleanupAndResolve()
+        }
+      }, 5000)
+
+      const cleanupAndResolve = () => {
+        clearTimeout(timer1)
+        clearTimeout(timer2)
+        try {
+          ptyProcess.kill()
+        } catch {}
+
+        try {
+          const cleanOutput = output.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')
+
+          const fiveHourMatch = cleanOutput.match(/Five Hour Limit\s*(?:\r?\n\s*)?\[[█░]+\]\s*([\d.]+)%\s*(?:\r?\n\s*)?(\d+)%\s*remaining\s*·\s*Refreshes\s*in\s*([^\n\r]+)/i)
+          const weeklyMatch = cleanOutput.match(/Weekly Limit\s*(?:\r?\n\s*)?\[[█░]+\]\s*([\d.]+)%\s*(?:\r?\n\s*)?(\d+)%\s*remaining\s*·\s*Refreshes\s*in\s*([^\n\r]+)/i)
+
+          const fiveHourRemaining = fiveHourMatch ? parseInt(fiveHourMatch[2], 10) : undefined
+          const weeklyRemaining = weeklyMatch ? parseInt(weeklyMatch[2], 10) : undefined
+
+          resolve({
+            success: true,
+            fiveHourUsed: fiveHourRemaining !== undefined ? (100 - fiveHourRemaining) : undefined,
+            fiveHourReset: fiveHourMatch ? fiveHourMatch[3].trim() : undefined,
+            weeklyUsed: weeklyRemaining !== undefined ? (100 - weeklyRemaining) : undefined,
+            weeklyReset: weeklyMatch ? weeklyMatch[3].trim() : undefined
+          })
+        } catch (err) {
+          resolve({ success: false, error: String(err) })
+        }
+      }
+    } catch (err) {
+      if (!resolved) {
+        resolved = true
+        resolve({ success: false, error: String(err) })
+      }
+    }
+  })
 }
