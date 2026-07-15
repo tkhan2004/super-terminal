@@ -581,81 +581,81 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
               </div>
             )
           })}
-          <div className="relative h-full flex items-center">
-            <button
-              className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border-r border-border/50"
-              onClick={() => setShowNewTabMenu((v) => !v)}
-              title="New terminal tab..."
-            >
-              <Plus size={14} />
-            </button>
+        </div>
+        <div className="relative h-full flex items-center shrink-0">
+          <button
+            className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border-r border-border/50"
+            onClick={() => setShowNewTabMenu((v) => !v)}
+            title="New terminal tab..."
+          >
+            <Plus size={14} />
+          </button>
 
-            {showNewTabMenu && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40 bg-transparent" 
-                  onClick={() => setShowNewTabMenu(false)} 
-                />
-                <div className="absolute top-full left-0 mt-1 w-44 rounded-md border border-border bg-popover py-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
-                  <button
-                    onClick={() => {
-                      createTab('shell', 'shell')
-                      setShowNewTabMenu(false)
-                    }}
-                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    🖥️ Terminal (Shell)
-                  </button>
-                  <div className="border-t border-border/40 my-1" />
-                  <button
-                    onClick={() => {
-                      createTab('claude', 'claude')
-                      setShowNewTabMenu(false)
-                    }}
-                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    🤖 Claude Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      createTab('codex', 'codex')
-                      setShowNewTabMenu(false)
-                    }}
-                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    💻 Codex Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      createTab('9router', 'opencode')
-                      setShowNewTabMenu(false)
-                    }}
-                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    🌐 Opencode Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      createTab('commandcode', 'commandcodeai')
-                      setShowNewTabMenu(false)
-                    }}
-                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    ⚡ Commandcodeai Agent
-                  </button>
-                  <button
-                    onClick={() => {
-                      createTab('agy', 'antigravity')
-                      setShowNewTabMenu(false)
-                    }}
-                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    🛸 Antigravity Agent
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          {showNewTabMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-40 bg-transparent" 
+                onClick={() => setShowNewTabMenu(false)} 
+              />
+              <div className="absolute top-full left-0 mt-1 w-44 rounded-md border border-border bg-popover py-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                <button
+                  onClick={() => {
+                    createTab('shell', 'shell')
+                    setShowNewTabMenu(false)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                >
+                  🖥️ Terminal (Shell)
+                </button>
+                <div className="border-t border-border/40 my-1" />
+                <button
+                  onClick={() => {
+                    createTab('claude', 'claude')
+                    setShowNewTabMenu(false)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                >
+                  🤖 Claude Agent
+                </button>
+                <button
+                  onClick={() => {
+                    createTab('codex', 'codex')
+                    setShowNewTabMenu(false)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                >
+                  💻 Codex Agent
+                </button>
+                <button
+                  onClick={() => {
+                    createTab('9router', 'opencode')
+                    setShowNewTabMenu(false)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                >
+                  🌐 Opencode Agent
+                </button>
+                <button
+                  onClick={() => {
+                    createTab('commandcode', 'commandcodeai')
+                    setShowNewTabMenu(false)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                >
+                  ⚡ Commandcodeai Agent
+                </button>
+                <button
+                  onClick={() => {
+                    createTab('agy', 'antigravity')
+                    setShowNewTabMenu(false)
+                  }}
+                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                >
+                  🛸 Antigravity Agent
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         {activeTabId && (
