@@ -8,12 +8,12 @@
 
 *Keep the real terminal. Improve everything around it.*
 
-[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-download)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-one-command-installation-windows)
 [![Built with Electron](https://img.shields.io/badge/Electron-31-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](#)
 
-[📥 Download](#-download) · [✨ Features](#-features) · [🚀 One-Command Setup](#-one-command-setup) · [🛠️ Tech Stack](#️-tech-stack) · [🤖 Coding Agents Setup](#-coding-agents-setup)
+[📥 Download](#-one-command-installation-windows) · [✨ Features](#-features) · [🚀 One-Command Setup](#-one-command-setup) · [🛠️ Tech Stack](#️-tech-stack) · [🤖 Coding Agents Setup](#-coding-agents-setup)
 
 </div>
 
