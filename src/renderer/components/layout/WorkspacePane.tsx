@@ -527,135 +527,136 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
 
   return (
     <div className="flex flex-col h-full w-full">
-      {/* Subheader tabs row */}
       <div className="flex h-9 items-center justify-between border-b border-border bg-secondary/40 select-none">
-        <div className="flex items-center h-full overflow-x-auto">
-          {Object.keys(tabLayouts).map((tabRootId) => {
-            const tabSession = tabs.find((t) => t.session.id === tabRootId)?.session
-            if (!tabSession) return null
-            const title = tabSession.title || tabSession.command
+        <div className="flex items-center h-full flex-1 min-w-0">
+          <div className="flex items-center h-full overflow-x-auto">
+            {Object.keys(tabLayouts).map((tabRootId) => {
+              const tabSession = tabs.find((t) => t.session.id === tabRootId)?.session
+              if (!tabSession) return null
+              const title = tabSession.title || tabSession.command
 
-            let isTabActive = activeTabId === tabRootId
-            if (activeTabId && tabLayouts[tabRootId]) {
-              isTabActive = JSON.stringify(tabLayouts[tabRootId]).includes(activeTabId)
-            }
+              let isTabActive = activeTabId === tabRootId
+              if (activeTabId && tabLayouts[tabRootId]) {
+                isTabActive = JSON.stringify(tabLayouts[tabRootId]).includes(activeTabId)
+              }
 
-            return (
-              <div
-                key={tabRootId}
-                className={`group relative flex h-full cursor-pointer items-center gap-2 px-4 text-xs border-r border-border/50 transition-all ${
-                  isTabActive
-                    ? 'bg-background text-foreground font-medium border-t-2 border-t-primary/80'
-                    : 'text-muted-foreground hover:bg-secondary/20 hover:text-foreground'
-                }`}
-                onClick={() => {
-                  const tree = tabLayouts[tabRootId]
-                  if (tree) {
-                    const sessionIds = collectSessionIds(tree)
-                    if (sessionIds.length > 0) {
-                      if (activeTabId && sessionIds.includes(activeTabId)) {
-                        setActiveTabId(activeTabId)
+              return (
+                <div
+                  key={tabRootId}
+                  className={`group relative flex h-full cursor-pointer items-center gap-2 px-4 text-xs border-r border-border/50 transition-all ${
+                    isTabActive
+                      ? 'bg-background text-foreground font-medium border-t-2 border-t-primary/80'
+                      : 'text-muted-foreground hover:bg-secondary/20 hover:text-foreground'
+                  }`}
+                  onClick={() => {
+                    const tree = tabLayouts[tabRootId]
+                    if (tree) {
+                      const sessionIds = collectSessionIds(tree)
+                      if (sessionIds.length > 0) {
+                        if (activeTabId && sessionIds.includes(activeTabId)) {
+                          setActiveTabId(activeTabId)
+                        } else {
+                          setActiveTabId(sessionIds[0])
+                        }
                       } else {
-                        setActiveTabId(sessionIds[0])
+                        setActiveTabId(tabRootId)
                       }
                     } else {
                       setActiveTabId(tabRootId)
                     }
-                  } else {
-                    setActiveTabId(tabRootId)
-                  }
-                }}
-                title={tabSession.cwd ?? title}
-              >
-                <span className="truncate max-w-[140px]">{title}</span>
-                <button
-                  className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    closeTabOrPane(tabRootId, true)
                   }}
-                  title="Close terminal tab"
+                  title={tabSession.cwd ?? title}
                 >
-                  <X size={10} />
-                </button>
-              </div>
-            )
-          })}
-        </div>
-        <div className="relative h-full flex items-center shrink-0">
-          <button
-            className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border-r border-border/50"
-            onClick={() => setShowNewTabMenu((v) => !v)}
-            title="New terminal tab..."
-          >
-            <Plus size={14} />
-          </button>
+                  <span className="truncate max-w-[140px]">{title}</span>
+                  <button
+                    className="flex items-center justify-center w-4 h-4 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-1 shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      closeTabOrPane(tabRootId, true)
+                    }}
+                    title="Close terminal tab"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+          <div className="relative h-full flex items-center shrink-0">
+            <button
+              className="flex items-center justify-center h-full px-3 text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border-r border-border/50"
+              onClick={() => setShowNewTabMenu((v) => !v)}
+              title="New terminal tab..."
+            >
+              <Plus size={14} />
+            </button>
 
-          {showNewTabMenu && (
-            <>
-              <div 
-                className="fixed inset-0 z-40 bg-transparent" 
-                onClick={() => setShowNewTabMenu(false)} 
-              />
-              <div className="absolute top-full left-0 mt-1 w-44 rounded-md border border-border bg-popover py-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
-                <button
-                  onClick={() => {
-                    createTab('shell', 'shell')
-                    setShowNewTabMenu(false)
-                  }}
-                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                >
-                  🖥️ Terminal (Shell)
-                </button>
-                <div className="border-t border-border/40 my-1" />
-                <button
-                  onClick={() => {
-                    createTab('claude', 'claude')
-                    setShowNewTabMenu(false)
-                  }}
-                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                >
-                  🤖 Claude Agent
-                </button>
-                <button
-                  onClick={() => {
-                    createTab('codex', 'codex')
-                    setShowNewTabMenu(false)
-                  }}
-                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                >
-                  💻 Codex Agent
-                </button>
-                <button
-                  onClick={() => {
-                    createTab('9router', 'opencode')
-                    setShowNewTabMenu(false)
-                  }}
-                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                >
-                  🌐 Opencode Agent
-                </button>
-                <button
-                  onClick={() => {
-                    createTab('commandcode', 'commandcodeai')
-                    setShowNewTabMenu(false)
-                  }}
-                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                >
-                  ⚡ Commandcodeai Agent
-                </button>
-                <button
-                  onClick={() => {
-                    createTab('agy', 'antigravity')
-                    setShowNewTabMenu(false)
-                  }}
-                  className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
-                >
-                  🛸 Antigravity Agent
-                </button>
-              </div>
-            </>
-          )}
+            {showNewTabMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40 bg-transparent" 
+                  onClick={() => setShowNewTabMenu(false)} 
+                />
+                <div className="absolute top-full left-0 mt-1 w-44 rounded-md border border-border bg-popover py-1 shadow-lg z-50 animate-in fade-in slide-in-from-top-1 duration-100">
+                  <button
+                    onClick={() => {
+                      createTab('shell', 'shell')
+                      setShowNewTabMenu(false)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    🖥️ Terminal (Shell)
+                  </button>
+                  <div className="border-t border-border/40 my-1" />
+                  <button
+                    onClick={() => {
+                      createTab('claude', 'claude')
+                      setShowNewTabMenu(false)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    🤖 Claude Agent
+                  </button>
+                  <button
+                    onClick={() => {
+                      createTab('codex', 'codex')
+                      setShowNewTabMenu(false)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    💻 Codex Agent
+                  </button>
+                  <button
+                    onClick={() => {
+                      createTab('9router', 'opencode')
+                      setShowNewTabMenu(false)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    🌐 Opencode Agent
+                  </button>
+                  <button
+                    onClick={() => {
+                      createTab('commandcode', 'commandcodeai')
+                      setShowNewTabMenu(false)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    ⚡ Commandcodeai Agent
+                  </button>
+                  <button
+                    onClick={() => {
+                      createTab('agy', 'antigravity')
+                      setShowNewTabMenu(false)
+                    }}
+                    className="flex w-full items-center px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors text-left"
+                  >
+                    🛸 Antigravity Agent
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {activeTabId && (
