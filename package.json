@@ -1,6 +1,6 @@
 {
   "name": "super-terminal",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Super Terminal — Desktop control center for AI coding agents",
   "author": {
     "name": "KhangNT",
@@ -72,7 +72,8 @@
     "publish": {
       "provider": "github",
       "owner": "tkhan2004",
-      "repo": "super-terminal"
+      "repo": "super-terminal",
+      "releaseType": "release"
     },
     "npmRebuild": false,
     "files": [
