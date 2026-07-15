@@ -24,7 +24,7 @@
 To download and install the latest compiled version of Super Terminal directly to your computer without downloading files manually or cloning the repository, open **Windows PowerShell** and run:
 
 ```powershell
-irm https://raw.githubusercontent.com/tkhan2004/super-terminal/v2/install.ps1 | iex
+irm https://raw.githubusercontent.com/tkhan2004/super-terminal/main/install.ps1 | iex
 ```
 
 This script will automatically query the GitHub API, download the latest setup installer, run a silent installation, and place a shortcut on your Desktop and Start Menu.
