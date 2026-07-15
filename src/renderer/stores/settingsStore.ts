@@ -14,6 +14,7 @@ export interface CliQuota {
   sessionReset?: string
   weekUsed?: number
   weekReset?: string
+  fableUsed?: number
 }
 
 interface SettingsState {

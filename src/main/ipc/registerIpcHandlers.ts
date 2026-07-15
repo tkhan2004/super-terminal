@@ -409,6 +409,7 @@ async function handleClaudeGetQuota(): Promise<{
   sessionReset?: string
   weekUsed?: number
   weekReset?: string
+  fableUsed?: number
   error?: string
 }> {
   return new Promise((resolve) => {
@@ -424,16 +425,19 @@ async function handleClaudeGetQuota(): Promise<{
       try {
         const sessionRegex = /Current session:\s*(\d+)%\s*used\s*·\s*resets\s*([^\n\r]+)/
         const weekRegex = /Current week \(all models\):\s*(\d+)%\s*used\s*·\s*resets\s*([^\n\r]+)/
+        const fableRegex = /Current week \(Fable\):\s*(\d+)%\s*used/
 
         const sessionMatch = stdout.match(sessionRegex)
         const weekMatch = stdout.match(weekRegex)
+        const fableMatch = stdout.match(fableRegex)
 
         resolve({
           success: true,
           sessionUsed: sessionMatch ? parseInt(sessionMatch[1], 10) : undefined,
           sessionReset: sessionMatch ? sessionMatch[2].trim() : undefined,
           weekUsed: weekMatch ? parseInt(weekMatch[1], 10) : undefined,
-          weekReset: weekMatch ? weekMatch[2].trim() : undefined
+          weekReset: weekMatch ? weekMatch[2].trim() : undefined,
+          fableUsed: fableMatch ? parseInt(fableMatch[1], 10) : undefined
         })
       } catch (err) {
         resolve({ success: false, error: String(err) })
@@ -490,13 +494,19 @@ async function handleQuotaScanLogins(): Promise<{
     isNonEmptyCredentialFile(join(homedir(), '.local', 'share', 'opencode', 'auth.json')) ||
     (process.env.LOCALAPPDATA
       ? isNonEmptyCredentialFile(join(process.env.LOCALAPPDATA, 'opencode', 'auth.json'))
+      : false) ||
+    (process.env.APPDATA
+      ? existsSync(join(process.env.APPDATA, 'ai.opencode.desktop', 'opencode.global.dat'))
       : false)
 
   const commandcodeai =
     !!process.env.COMMAND_CODE_API_KEY ||
     isNonEmptyCredentialFile(join(homedir(), '.commandcode', 'auth.json'))
 
-  const antigravity = await checkWindowsCredentialManager('antigravity')
+  const antigravity =
+    (await checkWindowsCredentialManager('antigravity')) ||
+    existsSync(join(homedir(), '.antigravity_cockpit', 'credentials.json')) ||
+    !!process.env.ANTIGRAVITY_AGENT
 
   return { claude, codex, antigravity, commandcodeai, opencode }
 }

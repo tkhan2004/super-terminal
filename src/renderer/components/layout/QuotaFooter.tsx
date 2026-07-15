@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSettingsStore, CliQuota } from '../../stores/settingsStore'
-import { Shield, Key, Database, RefreshCw, CheckCircle2, AlertTriangle, X } from 'lucide-react'
+import { Shield, Database, RefreshCw, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 
 export function QuotaFooter() {
   const { quotas, updateQuota } = useSettingsStore()
@@ -12,6 +12,28 @@ export function QuotaFooter() {
 
   const [loadingQuota, setLoadingQuota] = useState(false)
 
+  const scanLogins = useCallback(async () => {
+    try {
+      const detected = await window.api.quota.scanLogins()
+      updateQuota('codex', { isLoggedIn: detected.codex })
+      updateQuota('antigravity', { isLoggedIn: detected.antigravity })
+      updateQuota('commandcodeai', { isLoggedIn: detected.commandcodeai })
+      updateQuota('opencode', { isLoggedIn: detected.opencode })
+      
+      const creds = await window.api.claude.getCredentials()
+      if (creds && creds.isLoggedIn) {
+        updateQuota('claude', {
+          isLoggedIn: true,
+          apiKey: creds.accessToken ? creds.accessToken.substring(0, 18) + '...' : 'Authorized Oauth',
+        })
+      } else {
+        updateQuota('claude', { isLoggedIn: false, apiKey: '' })
+      }
+    } catch (err) {
+      console.error('Failed to scan local CLI logins:', err)
+    }
+  }, [updateQuota])
+
   const fetchClaudeQuota = useCallback(async () => {
     setLoadingQuota(true)
     try {
@@ -21,7 +43,8 @@ export function QuotaFooter() {
           sessionUsed: res.sessionUsed,
           sessionReset: res.sessionReset,
           weekUsed: res.weekUsed,
-          weekReset: res.weekReset
+          weekReset: res.weekReset,
+          fableUsed: res.fableUsed
         })
       }
     } catch (err) {
@@ -32,55 +55,16 @@ export function QuotaFooter() {
   }, [updateQuota])
 
   useEffect(() => {
-    const checkClaudeCreds = async () => {
-      try {
-        const creds = await window.api.claude.getCredentials()
-        if (creds && creds.isLoggedIn) {
-          updateQuota('claude', {
-            isLoggedIn: true,
-            apiKey: creds.accessToken ? creds.accessToken.substring(0, 18) + '...' : 'Authorized Oauth',
-          })
-          
-          // Initial quota fetch
-          setLoadingQuota(true)
-          const res = await window.api.claude.getQuota()
-          if (res && res.success) {
-            updateQuota('claude', {
-              sessionUsed: res.sessionUsed,
-              sessionReset: res.sessionReset,
-              weekUsed: res.weekUsed,
-              weekReset: res.weekReset
-            })
-          }
-          setLoadingQuota(false)
-        } else {
-          updateQuota('claude', {
-            isLoggedIn: false,
-            apiKey: ''
-          })
-        }
-      } catch (err) {
-        console.error('Failed to check Claude credentials:', err)
-        setLoadingQuota(false)
+    const initScanner = async () => {
+      await scanLogins()
+      // Initial fetch if logged in
+      const creds = await window.api.claude.getCredentials()
+      if (creds && creds.isLoggedIn) {
+        fetchClaudeQuota()
       }
     }
-    checkClaudeCreds()
-  }, [updateQuota])
-
-  useEffect(() => {
-    const scanOtherLogins = async () => {
-      try {
-        const detected = await window.api.quota.scanLogins()
-        updateQuota('codex', { isLoggedIn: detected.codex })
-        updateQuota('antigravity', { isLoggedIn: detected.antigravity })
-        updateQuota('commandcodeai', { isLoggedIn: detected.commandcodeai })
-        updateQuota('opencode', { isLoggedIn: detected.opencode })
-      } catch (err) {
-        console.error('Failed to scan local CLI logins:', err)
-      }
-    }
-    scanOtherLogins()
-  }, [updateQuota])
+    initScanner()
+  }, [scanLogins, fetchClaudeQuota])
 
   useEffect(() => {
     if (quotas.claude.isLoggedIn) {
@@ -92,10 +76,14 @@ export function QuotaFooter() {
     return undefined
   }, [quotas.claude.isLoggedIn, fetchClaudeQuota])
 
-  const openSettings = (key: string, quota: CliQuota) => {
+  const openSettings = async (key: string, quota: CliQuota) => {
     setActiveCli(key)
     setUsed(quota.used)
     setLimit(quota.limit)
+    await scanLogins()
+    if (key === 'claude') {
+      fetchClaudeQuota()
+    }
   }
 
   const handleSave = () => {
@@ -137,12 +125,11 @@ export function QuotaFooter() {
                     key={key}
                     onClick={() => openSettings(key, quota)}
                     className="flex items-center gap-2 cursor-pointer hover:bg-secondary/40 px-2 py-0.5 rounded transition-all group"
-                    title="Configure Claude Credentials"
+                    title="Claude Subscription Details"
                   >
                     <span className="font-medium group-hover:text-foreground">{quota.name}:</span>
-                    <span className="text-muted-foreground/60 italic flex items-center gap-1">
-                      <Key size={10} />
-                      Click to sign in
+                    <span className="text-muted-foreground/45 italic">
+                      Signed Out
                     </span>
                   </div>
                 )
@@ -239,9 +226,8 @@ export function QuotaFooter() {
                     </span>
                   </div>
                 ) : (
-                  <span className="text-muted-foreground/60 italic flex items-center gap-1">
-                    <Key size={10} />
-                    Click to sign in
+                  <span className="text-muted-foreground/45 italic">
+                    Signed Out
                   </span>
                 )}
               </div>
@@ -323,6 +309,22 @@ export function QuotaFooter() {
                   </div>
                 </div>
 
+                {/* Fable Info */}
+                {quotas.claude.fableUsed !== undefined && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex justify-between font-medium">
+                      <span className="text-foreground">Weekly Rate Limit Usage (Fable):</span>
+                      <span className="text-purple-500 font-bold">{quotas.claude.fableUsed}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-secondary rounded-full overflow-hidden border border-border/55">
+                      <div 
+                        className="h-full bg-purple-500 transition-all duration-300"
+                        style={{ width: `${quotas.claude.fableUsed}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Info Tip */}
                 <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
                   These limits are computed based on local sessions on this machine as configured by Anthropic. They do not include usage on other devices or web interfaces.
@@ -358,15 +360,21 @@ export function QuotaFooter() {
                       <CheckCircle2 size={12} /> Detected — signed in
                     </span>
                   ) : (
-                    <span className="text-muted-foreground/70 font-medium flex items-center gap-1">
+                    <span className="text-muted-foreground/75 font-medium flex items-center gap-1">
                       Not detected on this machine
                     </span>
                   )}
                 </div>
 
-                <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
-                  Detected automatically from this CLI&apos;s local credentials — nothing to paste here. Sign in from that CLI&apos;s own terminal session and this will update on next scan.
-                </div>
+                {!quotas[activeCli].isLoggedIn ? (
+                  <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
+                    To authenticate, please run this CLI&apos;s sign-in command (e.g. <code className="font-mono text-primary bg-secondary/80 px-1 rounded">claude login</code>, <code className="font-mono text-primary bg-secondary/80 px-1 rounded">openai login</code>, or similar) in your terminal. This workspace will auto-detect the credentials.
+                  </div>
+                ) : (
+                  <div className="bg-secondary/35 border border-border/50 p-2.5 rounded text-[10px] leading-relaxed text-muted-foreground">
+                    Detected automatically from your CLI&apos;s local credentials. Authentication credentials are managed and synchronized by your local system environment.
+                  </div>
+                )}
 
                 {/* Usage Stats (manual override — no public usage API for this CLI yet) */}
                 {quotas[activeCli].isLoggedIn && (
@@ -402,12 +410,20 @@ export function QuotaFooter() {
 
                 {/* Actions */}
                 <div className="flex gap-2 mt-5 pt-3 border-t border-border">
-                  {quotas[activeCli].isLoggedIn && (
+                  {quotas[activeCli].isLoggedIn ? (
                     <button
                       onClick={handleSave}
                       className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors"
                     >
                       Save Usage Override
+                    </button>
+                  ) : (
+                    <button
+                      onClick={scanLogins}
+                      className="flex-1 rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/95 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <RefreshCw size={11} className={loadingQuota ? 'animate-spin' : ''} />
+                      Scan CLI Login
                     </button>
                   )}
                   <button

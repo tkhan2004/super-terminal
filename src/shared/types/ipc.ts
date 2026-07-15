@@ -37,6 +37,7 @@ export interface IpcChannels {
       sessionReset?: string
       weekUsed?: number
       weekReset?: string
+      fableUsed?: number
       error?: string
     }
   }
