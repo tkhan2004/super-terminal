@@ -109,6 +109,9 @@ const api = {
   },
   quota: {
     scanLogins: () => invoke('quota:scanLogins')
+  },
+  system: {
+    checkCliInstalled: (cmd: string) => invoke('system:checkCliInstalled', cmd)
   }
 }
 

@@ -51,6 +51,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('claude:getCredentials', handleClaudeGetCredentials)
   ipcMain.handle('claude:getQuota', handleClaudeGetQuota)
   ipcMain.handle('quota:scanLogins', handleQuotaScanLogins)
+  ipcMain.handle('system:checkCliInstalled', handleSystemCheckCliInstalled)
   ipcMain.handle('commandcode:getQuota', handleCommandcodeGetQuota)
   ipcMain.handle('antigravity:getQuota', handleAntigravityGetQuota)
 }
@@ -752,3 +753,17 @@ async function handleAntigravityGetQuota(): Promise<{
     }
   })
 }
+
+async function handleSystemCheckCliInstalled(
+  _event: unknown,
+  cmd: string
+): Promise<boolean> {
+  const { exec } = await import('node:child_process')
+  return new Promise((resolve) => {
+    const checkCmd = process.platform === 'win32' ? `where.exe ${cmd}` : `which ${cmd}`
+    exec(checkCmd, (err) => {
+      resolve(!err)
+    })
+  })
+}
+

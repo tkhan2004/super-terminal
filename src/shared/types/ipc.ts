@@ -31,6 +31,7 @@ export interface IpcChannels {
   'git:showFiles': { args: [string, string]; result: { files: string[]; stats: string } }
   'git:commitDiff': { args: [string, string, string]; result: string }
   'git:push': { args: [string]; result: { success: boolean; error?: string } }
+  'system:checkCliInstalled': { args: [string]; result: boolean }
   'claude:getCredentials': { args: []; result: { isLoggedIn: boolean; accessToken?: string; subscriptionType?: string } }
   'claude:getQuota': {
     args: []

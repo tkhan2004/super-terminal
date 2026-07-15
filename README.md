@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="build/icons/icon.png" alt="Super Terminal logo" width="128" height="128" />
+<img src="build/icons/icon.png" alt="Super Terminal logo" width="128" height="128" style="border-radius: 20%;" />
 
 # ⚡ Super Terminal
 
@@ -11,9 +11,9 @@
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-download)
 [![Built with Electron](https://img.shields.io/badge/Electron-31-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![License](https://img.shields.io/badge/license-Private-lightgrey?style=for-the-badge)](#)
+[![TailwindCSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](#)
 
-[📥 Download](#-download) · [✨ Features](#-features) · [🖥️ Preview](#️-preview) · [🛠️ Tech Stack](#️-tech-stack) · [🚀 Dev Setup](#-dev-setup)
+[📥 Download](#-download) · [✨ Features](#-features) · [🚀 One-Command Setup](#-one-command-setup) · [🛠️ Tech Stack](#️-tech-stack) · [🤖 Coding Agents Setup](#-coding-agents-setup)
 
 </div>
 
@@ -21,56 +21,67 @@
 
 ## 🧠 What is this?
 
-**Super Terminal** is a desktop control center for AI coding agents — Claude Code, Codex CLI, Gemini CLI, OpenCode, Amp, and any other terminal-based agent you throw at it.
+**Super Terminal** is a desktop control center and workspace manager for AI coding agents — Claude Code, Codex CLI, Gemini CLI, OpenCode, CommandCode AI, and any other terminal-based agent.
 
-It doesn't reinvent the terminal. It doesn't wrap your agent in a chat bubble. It doesn't pretend to be an IDE. Every agent still runs in a real, native PTY — exactly as if you typed the command yourself. What Super Terminal adds is everything *around* that: workspaces, multi-agent orchestration, session persistence, git awareness, and a UI built for people who run five agents at once and refuse to lose track of any of them.
+It doesn't reinvent the terminal. Every agent runs in a real, native PTY (`xterm.js` + `node-pty`) — exactly as if you typed the command yourself. What Super Terminal adds is a dedicated command center: multiple concurrently open projects, custom terminal presets, timeline events detection, automated git conflict resolution, and an onboarding wizard to install your AI companions instantly.
 
 > If it works in a terminal today, it works exactly the same inside Super Terminal.
 
 ---
 
-## 📥 Download
+## 🚀 One-Command Setup
 
-> **Windows builds are available here:**
->
-> ### 👉 [**Download from Google Drive**](https://drive.google.com/drive/folders/1r-fQIdP42z8xPwlzxwoDH2lGLsgTjHuB?usp=drive_link)
+To run Super Terminal locally in development mode, clone the repository and run:
 
-The folder contains:
-- `Super Terminal Setup x.x.x.exe` — full installer (recommended)
-- `SuperTerminal-x.x.x-portable.exe` — no install, just run
-- `HUONG-DAN-CAI-DAT.md` — installation & usage guide (incl. Windows SmartScreen / Smart App Control notes)
+```bash
+# Installs dependencies, compiles native modules, and launches the app in one go!
+pnpm install && pnpm run dev
+```
 
-> ⚠️ The app isn't code-signed yet, so Windows may flag it as "unrecognized" on first run (SmartScreen / Smart App Control). This is expected for an indie/open build — see the guide in the Drive folder for how to proceed safely.
+*Prerequisites: Node.js 20+ and pnpm.*
+
+---
+
+## 🤖 Coding Agents Setup Wizard
+
+Getting your AI coding companions ready is easier than ever. On first launch, or via the **New Terminal Session** dialog, the **Coding Agents Setup Wizard** will:
+1. Scan your system PATH for installed CLI tools (`claude`, `codex`, `agy`, `commandcode`, `opencode`).
+2. Display a checklist of available coding companions.
+3. Automatically run a global installation command (e.g. `npm install -g @anthropic-ai/claude-code`) directly in a new terminal tab, allowing you to watch the installation progress live and log in immediately.
 
 ---
 
 ## ✨ Features
 
-| | |
+| Category | Description |
 |---|---|
-| 🧩 **Multi-Agent Workspace** | Run Claude Code, Codex CLI, Gemini CLI, and plain shells side by side, each in its own isolated PTY, all under one workspace. |
-| 💻 **Real Terminal, Always** | No output rewriting, no markdown rendering, no fake shell. What you see is `xterm.js` + `node-pty`, unfiltered. |
-| 📁 **Integrated Project Explorer** | Drag files straight into your prompt instead of typing `@src/auth/login.ts` by hand. |
-| ✍️ **Prompt Builder** | Multi-file attachments, prompt history, and reusable templates for prompts you write 50 times a day. |
-| 🕹️ **Agent Manager** | See every running agent's status, uptime, and workspace at a glance — switch instantly, no tab hunting. |
-| 💾 **Workspace Persistence** | Close the app, reopen it later, and every session, layout, and pinned file is exactly where you left it. |
-| ✅ **Task-Oriented Organization** | Group agents by *what you're building*, not by which tab they happen to live in. |
-| 📌 **Context Management** | Pin `README.md`, `CLAUDE.md`, `AGENTS.md` — know exactly what context every agent is working with. |
-| 🔲 **Split Terminal Views** | Side-by-side, grid, or focus mode — compare two agents' output without alt-tabbing. |
-| 🕓 **Session Timeline** | A structured log of prompts, file edits, commands, and commits — way easier to scan than raw scrollback. |
-| 🌿 **Git Awareness** | Branch, diff preview, and commit history, built in — without replacing your existing git workflow. |
+| 📂 **Multi-Project Tabs** | Switch between multiple active projects/workspaces instantly with full state restoration (sessions, layout, history). |
+| 🤖 **Agent Setup Wizard** | Automatically check which CLI agents are missing on your system and install them with one click. |
+| 💻 **Custom Terminal Appearance** | Choose from premium preset themes (Dracula, Nord, Monokai, Solarized, Default), customize font families, font sizes, cursor styles, and cursor blinking. |
+| 🌿 **Git Conflict Recovery** | Encountering conflicts during branch checkouts due to untracked files? Super Terminal automatically prompts to move conflicting files aside into a timestamped backup folder and retry the checkout. |
+| 🕓 **ANSI-Stripped Timeline** | Captures real-time prompt idles, git commits, and test suite completions by parsing ANSI-stripped terminal streams. |
+| 💾 **Workspace Persistence** | Every tab, split layout, file attachment, and terminal session is saved automatically and restored upon app reboot. |
 
 ---
 
-## 🖥️ Preview
+## 📦 Production Builds & CI/CD
 
-<div align="center">
+We use GitHub Actions to automate compiles and installer publishing. 
 
-![Super Terminal screenshot](https://github.com/user-attachments/assets/8b7be313-d993-4a6d-a0d4-84c1393f97c0)
+### Triggering a New Release
+Any commit tagged with `v*.*.*` pushed to GitHub triggers the build runner:
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
+A Windows installer (`Super Terminal Setup X.Y.Z.exe`) and portable binary (`SuperTerminal-X.Y.Z-portable.exe`) will be packaged and attached to a new GitHub Release draft automatically.
 
-</div>
-
-Minimal by design. Built for long sessions, not demos.
+### Running packaging locally:
+```bash
+pnpm run build
+pnpm run package
+```
+Builds are saved in the `release/` directory.
 
 ---
 
@@ -80,37 +91,10 @@ Minimal by design. Built for long sessions, not demos.
 Frontend    React · TypeScript · Tailwind CSS · Zustand
 Desktop     Electron
 Terminal    xterm.js · node-pty
-Backend     Local Node.js process · PTY manager · workspace manager · file watcher · git integration
+Backend     Local Node.js process · PTY manager · Workspace Restore Engine
 ```
 
-Everything runs **100% locally**. No cloud dependency, no vendor lock-in, no telemetry phoning home.
-
----
-
-## 🚫 Non-Goals
-
-Super Terminal is deliberately **not**:
-
-- A VS Code replacement
-- A code editor
-- Another AI chatbot
-- A wrapper around LLM APIs
-- A cloud IDE
-
-It exists to make the terminal-based agent workflow you already use *better*, not to replace it.
-
----
-
-## 🚀 Dev Setup
-
-```bash
-pnpm install
-pnpm dev          # run in development
-pnpm build        # production build
-pnpm package      # build Windows installer + portable exe
-```
-
-Requires Node.js 20+ and pnpm. Native module (`node-pty`) rebuilds automatically for your platform on install.
+Everything runs **100% locally**. No cloud dependency, no telemetry phoning home.
 
 ---
 

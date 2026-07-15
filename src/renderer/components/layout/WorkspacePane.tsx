@@ -10,7 +10,8 @@ import { PromptBuilderBar } from '../promptBuilder/PromptBuilderBar'
 import { CommandPalette } from '../commandPalette/CommandPalette'
 import { useTaskStore } from '../../stores/taskStore'
 import { useTimelineStore } from '../../stores/timelineStore'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Download } from 'lucide-react'
+import { AgentSetupWizardModal } from './AgentSetupWizardModal'
 
 function splitLeaf(
   node: SplitPaneNode,
@@ -98,6 +99,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [newCommand, setNewCommand] = useState('shell')
   const [showNewTabDialog, setShowNewTabDialog] = useState(false)
+  const [showSetupWizard, setShowSetupWizard] = useState(false)
   const [showNewTabMenu, setShowNewTabMenu] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [leftVisible, setLeftVisible] = useState(true)
@@ -332,6 +334,15 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
       delete onSaveStateRef.current[workspace.id]
     }
   }, [workspace.id, saveState, onSaveStateRef])
+
+  // Show agent installer wizard on first run (onboarding)
+  useEffect(() => {
+    const onboardingShown = localStorage.getItem('super-terminal-setup-wizard-shown')
+    if (!onboardingShown) {
+      localStorage.setItem('super-terminal-setup-wizard-shown', 'true')
+      setTimeout(() => setShowSetupWizard(true), 1500)
+    }
+  }, [])
 
   // Restore workspace state on mount
   useEffect(() => {
@@ -817,9 +828,28 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
                 Cancel
               </button>
             </div>
+            <div className="mt-4 border-t border-border pt-3 flex flex-col gap-1.5">
+              <span className="text-[10px] text-muted-foreground text-left">Or setup coding companions:</span>
+              <button
+                className="w-full flex items-center justify-center gap-1.5 rounded-md border border-border/80 bg-secondary/20 hover:bg-secondary/40 py-1.5 text-xs text-foreground transition-all"
+                onClick={() => {
+                  setShowNewTabDialog(false)
+                  setShowSetupWizard(true)
+                }}
+              >
+                <Download size={12} className="text-primary" /> Setup Coding Agents...
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Coding Agents Setup Wizard Modal */}
+      <AgentSetupWizardModal
+        isOpen={showSetupWizard}
+        onClose={() => setShowSetupWizard(false)}
+        onCreateSession={(cmd) => createTab(cmd, 'shell')}
+      />
 
       {/* Command Palette */}
       <CommandPalette
