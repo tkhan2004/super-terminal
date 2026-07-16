@@ -311,14 +311,15 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     }
   }, [workspace.id, saveState, onSaveStateRef])
 
-  // Show agent installer wizard on first run (onboarding)
+  // Show agent installer wizard on first run (onboarding) - only for the active workspace pane
   useEffect(() => {
+    if (!isActive) return
     const onboardingShown = localStorage.getItem('super-terminal-setup-wizard-shown')
     if (!onboardingShown) {
       localStorage.setItem('super-terminal-setup-wizard-shown', 'true')
       setTimeout(() => setShowSetupWizard(true), 1500)
     }
-  }, [])
+  }, [isActive])
 
   // Restore workspace state on mount
   useEffect(() => {
