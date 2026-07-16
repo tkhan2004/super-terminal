@@ -47,6 +47,32 @@ It doesn't reinvent the terminal. Every agent runs in a real, native PTY (`xterm
 
 ---
 
+## 📸 Preview & Screenshots
+
+<div align="center">
+  <img src="assets/demo-1.jpg" alt="Super Terminal Main Interface" width="800px" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.4);" />
+  <p><em>The core multi-project workspace displaying active coding agents.</em></p>
+  
+  <br />
+  
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center">
+        <img src="assets/demo-3.jpg" alt="Terminal Appearance Customization" width="380px" style="border-radius: 6px;" />
+        <br />
+        <sub><strong>🎨 Custom Terminal Appearance Settings</strong></sub>
+      </td>
+      <td width="50%" align="center">
+        <img src="assets/demo-2.jpg" alt="Agent Setup Wizard" width="380px" style="border-radius: 6px;" />
+        <br />
+        <sub><strong>🤖 Onboarding Setup Wizard</strong></sub>
+      </td>
+    </tr>
+  </table>
+</div>
+
+---
+
 ## 🚀 One-Command Setup
 
 To run Super Terminal locally in development mode, clone the repository and run:
