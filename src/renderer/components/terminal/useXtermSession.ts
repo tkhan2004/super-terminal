@@ -40,7 +40,7 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
     terminal.loadAddon(webLinksAddon)
     terminal.open(containerRef.current)
 
-    // Intercept keyboard shortcuts for copy/paste
+    // Intercept keyboard shortcuts for copy/paste and layout controls
     terminal.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true
 
@@ -57,11 +57,28 @@ export function useXtermSession({ sessionId, onResize, onData }: UseXtermSession
         return false
       }
 
-      // Paste: Ctrl+V or Ctrl+Shift+V
+      // Paste: Ctrl+V or Ctrl+Shift+V (let xterm.js natively handle it to avoid duplicate writes)
       if ((isCtrl && key === 'v') || (isCtrl && isShift && key === 'v')) {
-        navigator.clipboard.readText().then((text) => {
-          terminal.paste(text)
-        })
+        return true
+      }
+
+      // Zoom keys: Ctrl/Cmd + +/-/=/0/_ (let them bubble to Electron window zoom)
+      if (isCtrl && (key === '+' || key === '-' || key === '=' || key === '_' || key === '0')) {
+        return false
+      }
+
+      // Split layout keys: Ctrl/Cmd + \ or Ctrl/Cmd + Shift + -/_
+      if (isCtrl && (key === '\\' || (isShift && (key === '-' || key === '_')))) {
+        return false
+      }
+
+      // Close split/tab: Ctrl/Cmd + Shift + W / Q
+      if (isCtrl && isShift && (key === 'w' || key === 'q')) {
+        return false
+      }
+
+      // Command Palette: Ctrl/Cmd + P
+      if (isCtrl && key === 'p') {
         return false
       }
 

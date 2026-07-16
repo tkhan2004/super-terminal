@@ -361,26 +361,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
 
   const spawningRef = useRef(false)
 
-  // Keyboard shortcut listener
-  useEffect(() => {
-    if (!isActive) return undefined
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault()
-        setShowCommandPalette((v) => !v)
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
-        e.preventDefault()
-        handleSplit('vertical')
-      } else if ((e.ctrlKey || e.metaKey) && e.key === '-') {
-        e.preventDefault()
-        handleSplit('horizontal')
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, activeTabId, tabLayouts])
 
   useEffect(() => {
     if (isRestored && workspace && tabs.length === 0 && !showNewTabDialog && !spawningRef.current) {
@@ -473,6 +454,36 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
     },
     [activeTabId, workspace, setTabLayouts]
   )
+
+  // Keyboard shortcut listener (declared after closeTabOrPane and handleSplit dependencies)
+  useEffect(() => {
+    if (!isActive) return undefined
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrl = e.ctrlKey || e.metaKey
+      const isShift = e.shiftKey
+      const key = e.key.toLowerCase()
+
+      if (isCtrl && key === 'p') {
+        e.preventDefault()
+        setShowCommandPalette((v) => !v)
+      } else if (isCtrl && key === '\\') {
+        e.preventDefault()
+        handleSplit('vertical')
+      } else if (isCtrl && isShift && (key === '-' || key === '_')) {
+        e.preventDefault()
+        handleSplit('horizontal')
+      } else if (isCtrl && isShift && (key === 'w' || key === 'q')) {
+        e.preventDefault()
+        if (activeTabId) {
+          closeTabOrPane(activeTabId, false)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isActive, activeTabId, tabLayouts, closeTabOrPane, handleSplit])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -637,7 +648,7 @@ export function WorkspacePane({ workspace, isActive, onSaveStateRef }: Workspace
             <button
               className="flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:bg-secondary/20 hover:text-foreground transition-colors border border-transparent hover:border-border/50"
               onClick={() => handleSplit('horizontal')}
-              title={isMac ? "Split pane horizontally (⌘-)" : "Split pane horizontally (Ctrl+-)"}
+              title={isMac ? "Split pane horizontally (⌘Shift-)" : "Split pane horizontally (Ctrl+Shift+-)"}
             >
               <span className="font-mono text-[10px]">🟰</span>
               Horizontal
