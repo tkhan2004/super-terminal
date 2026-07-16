@@ -8,26 +8,32 @@
 
 *Keep the real terminal. Improve everything around it.*
 
-[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-one-command-installation-windows)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#-one-command-installation)
 [![Built with Electron](https://img.shields.io/badge/Electron-31-47848F?style=for-the-badge&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](#)
 
-[📥 Download](#-one-command-installation-windows) · [✨ Features](#-features) · [🚀 One-Command Setup](#-one-command-setup) · [🛠️ Tech Stack](#️-tech-stack) · [🤖 Coding Agents Setup](#-coding-agents-setup)
+[📥 Download](#-one-command-installation) · [✨ Features](#-features) · [🚀 One-Command Setup](#-one-command-setup) · [🛠️ Tech Stack](#️-tech-stack) · [🤖 Coding Agents Setup](#-coding-agents-setup)
 
 </div>
 
 ---
 
-## 📥 One-Command Installation (Windows)
+## 📥 One-Command Installation
 
-To download and install the latest compiled version of Super Terminal directly to your computer without downloading files manually or cloning the repository, open **Windows PowerShell** and run:
+To download and install the latest compiled version of Super Terminal directly to your computer without downloading files manually or cloning the repository, open your terminal and run the command for your operating system:
 
+### 🪟 Windows (PowerShell)
 ```powershell
 irm https://raw.githubusercontent.com/tkhan2004/super-terminal/main/install.ps1 | iex
 ```
-
 This script will automatically query the GitHub API, download the latest setup installer, run a silent installation, and place a shortcut on your Desktop and Start Menu.
+
+### 🍎 macOS (Terminal)
+```bash
+curl -fsSL https://raw.githubusercontent.com/tkhan2004/super-terminal/main/install.sh | bash
+```
+This script will detect your machine's CPU architecture (Apple Silicon vs Intel), download the corresponding `.dmg` file, mount it silently, and copy `Super Terminal.app` to your `/Applications` folder.
 
 ---
 

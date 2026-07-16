@@ -1,4 +1,7 @@
 # pnpm workspace configuration for pnpm v11+
+packages:
+  - '.'
+
 allowBuilds:
   node-pty: true
   electron: true
