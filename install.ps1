@@ -1,53 +1,60 @@
 $ErrorActionPreference = 'Stop'
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Set Window Title
 $Host.UI.RawUI.WindowTitle = "Installing Super Terminal..."
 
-# ANSI Color Tokens (Baby Blue & Flying Dragon Palette)
+# ANSI Color Tokens & Unicode Symbols
 $e = [char]27
+$checkSymbol = [char]0x2713
+$crossSymbol = [char]0x2717
+$starSymbol  = [char]0x2728
+
 $BabyBlue     = "$e[38;2;137;207;240m"
 $BabyBlueBold = "$e[1;38;2;137;207;240m"
 $DragonGold   = "$e[1;38;2;255;215;0m"
 $DragonFlame  = "$e[1;38;2;255;99;71m"
-$DragonPurple = "$e[1;38;2;186;85;211m"
+$Green        = "$e[1;32m"
+$Red          = "$e[1;31m"
 $Reset        = "$e[0m"
 
-# Header & Flying Dragon Banner
+# Header & BIG Flying Dragon Banner
 Clear-Host
 Write-Host ""
-Write-Host "  $BabyBlue================================================================"
-Write-Host "  $DragonFlame             / \  __/\  / \"
-Write-Host "  $DragonFlame            /   \/    \/   \          $DragonGold🐉 FLYING DRAGON"
-Write-Host "  $BabyBlueBold          /  (  $DragonFlameo   o$BabyBlueBold  )   \        $DragonGold~~~~~~~~~~~~~~~"
-Write-Host "  $BabyBlueBold         (   /\  ___  /\    )     $BabyBlueSuper Terminal OS"
-Write-Host "  $BabyBlue            \ /  \/   \/  \  /"
-Write-Host "  $BabyBlue             '             '"
-Write-Host "  $BabyBlueBold    ____  _   _ ____  _____ ____    _____ _____ ____  __  __"
-Write-Host "   / ___|| | | |  _ \| ____|  _ \  |_   _| ____|  _ \|  \/  |"
-Write-Host "   \___ \| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\/| |"
-Write-Host "    ___) | |_| |  __/| |___|  _ <    | | | |___|  _ <| |  | |"
-Write-Host "   |____/ \___/|_|   |_____|_| \_\   |_| |_____|_| \_\_|  |_|"
-Write-Host "                                                             "
-Write-Host "         $DragonGold✨ AI AGENT DESKTOP CONTROL CENTER (Windows) ✨"
-Write-Host "  $BabyBlue================================================================"
-Write-Host "$Reset"
+Write-Host ('  ' + $BabyBlue + '==============================================================')
+Write-Host ('  ' + $DragonFlame + '              /\_/\              ' + $DragonGold + $starSymbol + ' FLYING DRAGON OS ENGINE ' + $starSymbol)
+Write-Host ('  ' + $DragonFlame + '            =( o.o )=           ' + $DragonGold + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+Write-Host ('  ' + $BabyBlueBold + '             (  "  )           ' + $BabyBlue + 'Super Terminal Control Center')
+Write-Host ('  ' + $BabyBlueBold + '            /       \')
+Write-Host ('  ' + $BabyBlueBold + '           (  |   |  )')
+Write-Host ('  ' + $BabyBlue + '           (__|\_/|__)')
+Write-Host ('  ' + $BabyBlue + '==============================================================')
+Write-Host ('  ' + $BabyBlueBold + '    ____  _   _ ____  _____ ____    _____ _____ ____  __  __')
+Write-Host ('  ' + $BabyBlueBold + '   / ___|| | | |  _ \| ____|  _ \  |_   _| ____|  _ \|  \/  |')
+Write-Host ('  ' + $BabyBlueBold + '   \___ \| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\/| |')
+Write-Host ('  ' + $BabyBlueBold + '    ___) | |_| |  __/| |___|  _ <    | | | |___|  _ <| |  | |')
+Write-Host ('  ' + $BabyBlueBold + '   |____/ \___/|_|   |_____|_| \_\   |_| |_____|_| \_\_|  |_|')
+Write-Host ('  ')
+Write-Host ('         ' + $DragonGold + $starSymbol + ' AI AGENT DESKTOP CONTROL CENTER (Windows) ' + $starSymbol)
+Write-Host ('  ' + $BabyBlue + '==============================================================')
+Write-Host ($Reset)
 
 # Helper: Print Step Status in Baby Blue
 function Write-Step {
     param([string]$Message, [string]$Status = "RUNNING")
     $e = [char]27
+    $check = [char]0x2713
+    $cross = [char]0x2717
     $BabyBlue = "$e[38;2;137;207;240m"
     $Green    = "$e[1;32m"
     $Red      = "$e[1;31m"
     $Reset    = "$e[0m"
 
     if ($Status -eq "RUNNING") {
-        Write-Host "  $BabyBlue[?] $Message$Reset"
+        Write-Host ('  ' + $BabyBlue + '(?) ' + $Message + $Reset)
     } elseif ($Status -eq "SUCCESS") {
-        Write-Host "  $Green[✓] $Message$Reset"
+        Write-Host ('  ' + $Green + '(' + $check + ') ' + $Message + $Reset)
     } elseif ($Status -eq "FAILED") {
-        Write-Host "  $Red[✗] $Message$Reset"
+        Write-Host ('  ' + $Red + '(' + $cross + ') ' + $Message + $Reset)
     }
 }
 
@@ -76,11 +83,12 @@ if (-not $asset) {
 
 $downloadUrl = $asset.browser_download_url
 $tempPath = Join-Path $env:TEMP $asset.name
-Write-Step "Found package: $($asset.name) ($([math]::Round($asset.size / 1MB, 1)) MB)" "SUCCESS"
+$sizeMb = [math]::Round($asset.size / 1MB, 1)
+Write-Step "Found package: $($asset.name) ($sizeMb MB)" "SUCCESS"
 
-# 3. Streamed Chunk Download with Live Progress Bar & Flying Dragon Animation
+# 3. Streamed Chunk Download with Live Progress Bar
 Write-Host ""
-Write-Host "  $DragonGold[🐲] Flying Dragon Downloading Stream...$Reset"
+Write-Host ('  ' + $DragonGold + '[*] Flying Dragon Downloading Stream...' + $Reset)
 
 function Stream-Download {
     param([string]$Url, [string]$Path)
@@ -95,7 +103,7 @@ function Stream-Download {
     $buffer = New-Object byte[] 65536
     $downloadedBytes = 0
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $dragonFrames = @("🐉 ~~~", "🐲 ~~~", "🐉 🔥~~", "🐲 🔥🔥")
+    $dragonFrames = @(">~~~", "=~~~", ">*~~", "=*==")
     $frameIdx = 0
 
     try {
@@ -122,7 +130,7 @@ function Stream-Download {
             $speed = if ($elapsedSec -gt 0) { [math]::Round(($downloadedBytes / 1MB) / $elapsedSec, 1) } else { 0 }
             $dragon = $dragonFrames[$frameIdx % $dragonFrames.Length]
 
-            $statusLine = "`r  $dragon [$bar$Reset$BabyBlue] $percent% | $mbDownloaded/$mbTotal MB ($speed MB/s) $Reset"
+            $statusLine = "`r  $dragon [" + $bar + $Reset + $BabyBlue + "] $percent% | $mbDownloaded/$mbTotal MB ($speed MB/s) " + $Reset
             Write-Host -NoNewline $statusLine
             $frameIdx++
         }
@@ -142,7 +150,7 @@ try {
     exit 1
 }
 
-# 4. Silent Execution with Flying Dragon Spinner
+# 4. Silent Execution with Spinner
 Write-Host ""
 Write-Step "Installing Super Terminal to your system..."
 
@@ -163,21 +171,21 @@ try {
 }
 
 $dragonSpinner = @(
-    "🐉 ⚡ Configuring shortcuts...",
-    "🐲 ⚡ Registering PTY components...",
-    "🐉 🔥 Optimizing workspace engine...",
-    "🐲 🔥 Finalizing installation..."
+    "Configuring shortcuts...",
+    "Registering PTY components...",
+    "Optimizing workspace engine...",
+    "Finalizing installation..."
 )
 $idx = 0
 
 while (-not $process.HasExited) {
     $msg = $dragonSpinner[$idx % $dragonSpinner.Length]
-    Write-Host -NoNewline "`r  $BabyBlueBold[$msg]$Reset          "
+    Write-Host -NoNewline ("`r  " + $BabyBlueBold + "[" + $msg + "]" + $Reset + "          ")
     Start-Sleep -Milliseconds 250
     $idx++
 }
 
-Write-Host "`r  $e[1;32m[✓] Flying Dragon Installation Completed Successfully!          $Reset"
+Write-Host ("`r  " + $e + "[1;32m(" + $checkSymbol + ") Flying Dragon Installation Completed Successfully!          " + $Reset)
 
 # 5. Clean Up
 if (Test-Path $tempPath) {
@@ -186,12 +194,12 @@ if (Test-Path $tempPath) {
 
 # Final Baby Blue Dragon Banner
 Write-Host ""
-Write-Host "  $BabyBlueBold┌──────────────────────────────────────────────────────────────┐"
-Write-Host "  │                                                              │"
-Write-Host "  │   $DragonGold✨ Super Terminal $version Installed Successfully!         $BabyBlueBold│"
-Write-Host "  │                                                              │"
-Write-Host "  │   $BabyBlueBold🚀 Launch from: Start Menu or Desktop Shortcut             │"
-Write-Host "  │   $DragonFlame🐉 Powered by Flying Dragon OS Engine                     │"
-Write-Host "  │                                                              │"
-Write-Host "  └──────────────────────────────────────────────────────────────┘$Reset"
+Write-Host ('  ' + $BabyBlueBold + '+--------------------------------------------------------------+')
+Write-Host ('  |                                                              |')
+Write-Host ('  |   ' + $DragonGold + $starSymbol + ' Super Terminal ' + $version + ' Installed Successfully!         ' + $BabyBlueBold + '|')
+Write-Host ('  |                                                              |')
+Write-Host ('  |   ' + $BabyBlueBold + '* Launch from: Start Menu or Desktop Shortcut              |')
+Write-Host ('  |   ' + $DragonFlame + '* Powered by Flying Dragon OS Engine                      |')
+Write-Host ('  |                                                              |')
+Write-Host ('  +--------------------------------------------------------------+' + $Reset)
 Write-Host ""
