@@ -1,9 +1,29 @@
 $ErrorActionPreference = 'Stop'
 
+# Enable VT100 Virtual Terminal Processing on Windows Console for ANSI colors
+try {
+    $Kernel32 = Add-Type -MemberDefinition @"
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern IntPtr GetStdHandle(int nStdHandle);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out int lpMode);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool SetConsoleMode(IntPtr hConsoleHandle, int dwMode);
+"@ -Name "Kernel32VT" -Namespace "Win32VT" -PassThru -ErrorAction SilentlyContinue
+
+    if ($Kernel32) {
+        $hOut = [Win32VT.Kernel32VT]::GetStdHandle(-11)
+        $mode = 0
+        if ([Win32VT.Kernel32VT]::GetConsoleMode($hOut, [ref]$mode)) {
+            [void][Win32VT.Kernel32VT]::SetConsoleMode($hOut, $mode -bor 4)
+        }
+    }
+} catch {}
+
 # Set Window Title
 $Host.UI.RawUI.WindowTitle = "Installing Super Terminal..."
 
-# ANSI Color Tokens & Unicode Symbols
+# ANSI Color Tokens & Symbols
 $e = [char]27
 $checkSymbol = [char]0x2713
 $crossSymbol = [char]0x2717
@@ -17,17 +37,16 @@ $Green        = "$e[1;32m"
 $Red          = "$e[1;31m"
 $Reset        = "$e[0m"
 
-# Header & BIG Flying Dragon Banner
+# Header Banner with Dragon & Solid Baby Blue Logo
 Clear-Host
 Write-Host ""
 Write-Host ('  ' + $BabyBlue + '==============================================================')
-Write-Host ('  ' + $DragonFlame + '              /\_/\              ' + $DragonGold + $starSymbol + ' FLYING DRAGON OS ENGINE ' + $starSymbol)
-Write-Host ('  ' + $DragonFlame + '            =( o.o )=           ' + $DragonGold + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-Write-Host ('  ' + $BabyBlueBold + '             (  "  )           ' + $BabyBlue + 'Super Terminal Control Center')
+Write-Host ('  ' + $DragonFlame + '              /\_/\')
+Write-Host ('  ' + $DragonFlame + '            =( o.o )=')
+Write-Host ('  ' + $BabyBlueBold + '             (  "  )')
 Write-Host ('  ' + $BabyBlueBold + '            /       \')
 Write-Host ('  ' + $BabyBlueBold + '           (  |   |  )')
 Write-Host ('  ' + $BabyBlue + '           (__|\_/|__)')
-Write-Host ('  ' + $BabyBlue + '==============================================================')
 Write-Host ('  ' + $BabyBlueBold + '    ____  _   _ ____  _____ ____    _____ _____ ____  __  __')
 Write-Host ('  ' + $BabyBlueBold + '   / ___|| | | |  _ \| ____|  _ \  |_   _| ____|  _ \|  \/  |')
 Write-Host ('  ' + $BabyBlueBold + '   \___ \| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\/| |')
@@ -87,9 +106,9 @@ $tempPath = Join-Path $env:TEMP "Super Terminal Setup-$randomId.exe"
 $sizeMb = [math]::Round($asset.size / 1MB, 1)
 Write-Step "Found package: $($asset.name) ($sizeMb MB)" "SUCCESS"
 
-# 3. Streamed Chunk Download with Live Progress Bar
+# 3. Streamed Chunk Download with High-Visibility Live Progress Bar
 Write-Host ""
-Write-Host ('  ' + $DragonGold + '[*] Flying Dragon Downloading Stream...' + $Reset)
+Write-Host ('  ' + $DragonGold + '[*] Downloading Super Terminal package...' + $Reset)
 
 function Stream-Download {
     param([string]$Url, [string]$Path)
@@ -116,23 +135,25 @@ function Stream-Download {
             $mbDownloaded = [math]::Round($downloadedBytes / 1MB, 1)
             $mbTotal = [math]::Round($totalBytes / 1MB, 1)
             
-            $barLength = 26
+            $barLength = 30
             $filledLength = [math]::Floor(($percent / 100) * $barLength)
             $unfilledLength = $barLength - $filledLength
             
             $e = [char]27
-            $BabyBlue = "$e[38;2;137;207;240m"
             $BabyBlueBold = "$e[1;38;2;137;207;240m"
+            $DimGray = "$e[90m"
             $Reset = "$e[0m"
 
-            $bar = ($BabyBlueBold + ("█" * $filledLength)) + ($e + "[90m" + ("░" * $unfilledLength))
+            $barFilled = "█" * $filledLength
+            $barUnfilled = "░" * $unfilledLength
             
             $elapsedSec = $sw.Elapsed.TotalSeconds
             $speed = if ($elapsedSec -gt 0) { [math]::Round(($downloadedBytes / 1MB) / $elapsedSec, 1) } else { 0 }
             $dragon = $dragonFrames[$frameIdx % $dragonFrames.Length]
 
-            $statusLine = "`r  $dragon [" + $bar + $Reset + $BabyBlue + "] $percent% | $mbDownloaded/$mbTotal MB ($speed MB/s) " + $Reset
-            Write-Host -NoNewline $statusLine
+            # Clear line and print high-visibility progress bar
+            $line = "`r  " + $dragon + " [" + $BabyBlueBold + $barFilled + $DimGray + $barUnfilled + $Reset + "] " + $percent + "% | " + $mbDownloaded + "/" + $mbTotal + " MB (" + $speed + " MB/s)   "
+            Write-Host -NoNewline $line
             $frameIdx++
         }
         Write-Host ""
@@ -186,7 +207,7 @@ while (-not $process.HasExited) {
     $idx++
 }
 
-Write-Host ("`r  " + $e + "[1;32m(" + $checkSymbol + ") Flying Dragon Installation Completed Successfully!          " + $Reset)
+Write-Host ("`r  " + $e + "[1;32m(" + $checkSymbol + ") Installation Completed Successfully!          " + $Reset)
 
 # 5. Clean Up
 if (Test-Path $tempPath) {
