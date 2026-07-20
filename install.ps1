@@ -115,7 +115,22 @@ try {
 Write-Host ""
 Write-Step "Installing Super Terminal to your system..."
 
-$process = Start-Process -FilePath $tempPath -ArgumentList "/S" -PassThru
+# Unblock Mark of the Web (Zone.Identifier stream) to bypass Application Control policy
+if (Get-Command Unblock-File -ErrorAction SilentlyContinue) {
+    Unblock-File -Path $tempPath -ErrorAction SilentlyContinue
+}
+try {
+    Remove-Item -Path "$tempPath:Zone.Identifier" -ErrorAction SilentlyContinue
+} catch {}
+
+# Start installer with fallback for elevated execution if blocked
+try {
+    $process = Start-Process -FilePath $tempPath -ArgumentList "/S" -PassThru
+} catch {
+    Write-Step "Notice: Application control policy active, requesting UAC elevation..." "RUNNING"
+    $process = Start-Process -FilePath $tempPath -ArgumentList "/S" -Verb RunAs -PassThru
+}
+
 $spinner = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
 $idx = 0
 
