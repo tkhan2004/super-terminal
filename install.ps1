@@ -144,8 +144,10 @@ function Stream-Download {
             $DimGray = "$e[90m"
             $Reset = "$e[0m"
 
-            $barFilled = "█" * $filledLength
-            $barUnfilled = "░" * $unfilledLength
+            $blockChar = [char]0x2588
+            $shadeChar = [char]0x2591
+            $barFilled = [string]$blockChar * $filledLength
+            $barUnfilled = [string]$shadeChar * $unfilledLength
             
             $elapsedSec = $sw.Elapsed.TotalSeconds
             $speed = if ($elapsedSec -gt 0) { [math]::Round(($downloadedBytes / 1MB) / $elapsedSec, 1) } else { 0 }
@@ -175,6 +177,9 @@ try {
 # 4. Silent Execution with Spinner
 Write-Host ""
 Write-Step "Installing Super Terminal to your system..."
+
+# Close any running Super Terminal instances so NSIS silent installer completes immediately
+Get-Process | Where-Object { $_.Name -like "*Super*Terminal*" -or $_.ProcessName -like "*Super*Terminal*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 # Unblock Mark of the Web (Zone.Identifier stream) to bypass Application Control policy
 if (Get-Command Unblock-File -ErrorAction SilentlyContinue) {
