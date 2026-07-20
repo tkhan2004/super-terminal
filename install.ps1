@@ -82,7 +82,8 @@ if (-not $asset) {
 }
 
 $downloadUrl = $asset.browser_download_url
-$tempPath = Join-Path $env:TEMP $asset.name
+$randomId = [Guid]::NewGuid().ToString('N').Substring(0, 6)
+$tempPath = Join-Path $env:TEMP "Super Terminal Setup-$randomId.exe"
 $sizeMb = [math]::Round($asset.size / 1MB, 1)
 Write-Step "Found package: $($asset.name) ($sizeMb MB)" "SUCCESS"
 
