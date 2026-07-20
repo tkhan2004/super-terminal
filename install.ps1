@@ -4,29 +4,50 @@ $ErrorActionPreference = 'Stop'
 # Set Window Title
 $Host.UI.RawUI.WindowTitle = "Installing Super Terminal..."
 
-# Header & Banner
+# ANSI Color Tokens (Baby Blue & Flying Dragon Palette)
+$e = [char]27
+$BabyBlue     = "$e[38;2;137;207;240m"
+$BabyBlueBold = "$e[1;38;2;137;207;240m"
+$DragonGold   = "$e[1;38;2;255;215;0m"
+$DragonFlame  = "$e[1;38;2;255;99;71m"
+$DragonPurple = "$e[1;38;2;186;85;211m"
+$Reset        = "$e[0m"
+
+# Header & Flying Dragon Banner
 Clear-Host
 Write-Host ""
-Write-Host "  ================================================================" -ForegroundColor Cyan
-Write-Host "    ____  _   _ ____  _____ ____    _____ _____ ____  __  __" -ForegroundColor Cyan
-Write-Host "   / ___|| | | |  _ \| ____|  _ \  |_   _| ____|  _ \|  \/  |" -ForegroundColor Cyan
-Write-Host "   \___ \| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\/| |" -ForegroundColor Magenta
-Write-Host "    ___) | |_| |  __/| |___|  _ <    | | | |___|  _ <| |  | |" -ForegroundColor Magenta
-Write-Host "   |____/ \___/|_|   |_____|_| \_\   |_| |_____|_| \_\_|  |_|" -ForegroundColor DarkCyan
+Write-Host "  $BabyBlue================================================================"
+Write-Host "  $DragonFlame             / \  __/\  / \"
+Write-Host "  $DragonFlame            /   \/    \/   \          $DragonGold🐉 FLYING DRAGON"
+Write-Host "  $BabyBlueBold          /  (  $DragonFlameo   o$BabyBlueBold  )   \        $DragonGold~~~~~~~~~~~~~~~"
+Write-Host "  $BabyBlueBold         (   /\  ___  /\    )     $BabyBlueSuper Terminal OS"
+Write-Host "  $BabyBlue            \ /  \/   \/  \  /"
+Write-Host "  $BabyBlue             '             '"
+Write-Host "  $BabyBlueBold    ____  _   _ ____  _____ ____    _____ _____ ____  __  __"
+Write-Host "   / ___|| | | |  _ \| ____|  _ \  |_   _| ____|  _ \|  \/  |"
+Write-Host "   \___ \| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\/| |"
+Write-Host "    ___) | |_| |  __/| |___|  _ <    | | | |___|  _ <| |  | |"
+Write-Host "   |____/ \___/|_|   |_____|_| \_\   |_| |_____|_| \_\_|  |_|"
 Write-Host "                                                             "
-Write-Host "               AI AGENT DESKTOP CONTROL CENTER               " -ForegroundColor Yellow
-Write-Host "  ================================================================" -ForegroundColor Cyan
-Write-Host ""
+Write-Host "         $DragonGold✨ AI AGENT DESKTOP CONTROL CENTER (Windows) ✨"
+Write-Host "  $BabyBlue================================================================"
+Write-Host "$Reset"
 
-# Helper: Print Step Status
+# Helper: Print Step Status in Baby Blue
 function Write-Step {
     param([string]$Message, [string]$Status = "RUNNING")
+    $e = [char]27
+    $BabyBlue = "$e[38;2;137;207;240m"
+    $Green    = "$e[1;32m"
+    $Red      = "$e[1;31m"
+    $Reset    = "$e[0m"
+
     if ($Status -eq "RUNNING") {
-        Write-Host "  [?] $Message" -ForegroundColor Cyan
+        Write-Host "  $BabyBlue[?] $Message$Reset"
     } elseif ($Status -eq "SUCCESS") {
-        Write-Host "  [✓] $Message" -ForegroundColor Green
+        Write-Host "  $Green[✓] $Message$Reset"
     } elseif ($Status -eq "FAILED") {
-        Write-Host "  [✗] $Message" -ForegroundColor Red
+        Write-Host "  $Red[✗] $Message$Reset"
     }
 }
 
@@ -57,9 +78,9 @@ $downloadUrl = $asset.browser_download_url
 $tempPath = Join-Path $env:TEMP $asset.name
 Write-Step "Found package: $($asset.name) ($([math]::Round($asset.size / 1MB, 1)) MB)" "SUCCESS"
 
-# 3. Streamed Chunk Download with Live Progress Bar
+# 3. Streamed Chunk Download with Live Progress Bar & Flying Dragon Animation
 Write-Host ""
-Write-Host "  [↓] Streaming package download..." -ForegroundColor Yellow
+Write-Host "  $DragonGold[🐲] Flying Dragon Downloading Stream...$Reset"
 
 function Stream-Download {
     param([string]$Url, [string]$Path)
@@ -74,6 +95,8 @@ function Stream-Download {
     $buffer = New-Object byte[] 65536
     $downloadedBytes = 0
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $dragonFrames = @("🐉 ~~~", "🐲 ~~~", "🐉 🔥~~", "🐲 🔥🔥")
+    $frameIdx = 0
 
     try {
         while (($read = $responseStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
@@ -84,16 +107,24 @@ function Stream-Download {
             $mbDownloaded = [math]::Round($downloadedBytes / 1MB, 1)
             $mbTotal = [math]::Round($totalBytes / 1MB, 1)
             
-            $barLength = 30
+            $barLength = 26
             $filledLength = [math]::Floor(($percent / 100) * $barLength)
             $unfilledLength = $barLength - $filledLength
-            $bar = ("█" * $filledLength) + ("░" * $unfilledLength)
+            
+            $e = [char]27
+            $BabyBlue = "$e[38;2;137;207;240m"
+            $BabyBlueBold = "$e[1;38;2;137;207;240m"
+            $Reset = "$e[0m"
+
+            $bar = ($BabyBlueBold + ("█" * $filledLength)) + ($e + "[90m" + ("░" * $unfilledLength))
             
             $elapsedSec = $sw.Elapsed.TotalSeconds
             $speed = if ($elapsedSec -gt 0) { [math]::Round(($downloadedBytes / 1MB) / $elapsedSec, 1) } else { 0 }
+            $dragon = $dragonFrames[$frameIdx % $dragonFrames.Length]
 
-            $statusLine = "`r  [$bar] $percent% | $mbDownloaded / $mbTotal MB ($speed MB/s) "
+            $statusLine = "`r  $dragon [$bar$Reset$BabyBlue] $percent% | $mbDownloaded/$mbTotal MB ($speed MB/s) $Reset"
             Write-Host -NoNewline $statusLine
+            $frameIdx++
         }
         Write-Host ""
     } finally {
@@ -111,7 +142,7 @@ try {
     exit 1
 }
 
-# 4. Silent Execution with Animated Spinner
+# 4. Silent Execution with Flying Dragon Spinner
 Write-Host ""
 Write-Step "Installing Super Terminal to your system..."
 
@@ -131,31 +162,36 @@ try {
     $process = Start-Process -FilePath $tempPath -ArgumentList "/S" -Verb RunAs -PassThru
 }
 
-$spinner = @('⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏')
+$dragonSpinner = @(
+    "🐉 ⚡ Configuring shortcuts...",
+    "🐲 ⚡ Registering PTY components...",
+    "🐉 🔥 Optimizing workspace engine...",
+    "🐲 🔥 Finalizing installation..."
+)
 $idx = 0
 
 while (-not $process.HasExited) {
-    $char = $spinner[$idx % $spinner.Length]
-    Write-Host -NoNewline "`r  [$char] Configuring shortcuts & registered components... "
-    Start-Sleep -Milliseconds 120
+    $msg = $dragonSpinner[$idx % $dragonSpinner.Length]
+    Write-Host -NoNewline "`r  $BabyBlueBold[$msg]$Reset          "
+    Start-Sleep -Milliseconds 250
     $idx++
 }
 
-Write-Host "`r  [✓] Installation completed successfully!            " -ForegroundColor Green
+Write-Host "`r  $e[1;32m[✓] Flying Dragon Installation Completed Successfully!          $Reset"
 
 # 5. Clean Up
 if (Test-Path $tempPath) {
     Remove-Item $tempPath -Force
 }
 
-# Final Banner
+# Final Baby Blue Dragon Banner
 Write-Host ""
-Write-Host "  ┌──────────────────────────────────────────────────────────────┐" -ForegroundColor Green
-Write-Host "  │                                                              │" -ForegroundColor Green
-Write-Host "  │   ✨ Super Terminal $version Installed Successfully!         │" -ForegroundColor Yellow
-Write-Host "  │                                                              │" -ForegroundColor Green
-Write-Host "  │   🚀 Launch from: Start Menu or Desktop Shortcut             │" -ForegroundColor Cyan
-Write-Host "  │   ⚡ Operating system for your AI coding companions          │" -ForegroundColor Gray
-Write-Host "  │                                                              │" -ForegroundColor Green
-Write-Host "  └──────────────────────────────────────────────────────────────┘" -ForegroundColor Green
+Write-Host "  $BabyBlueBold┌──────────────────────────────────────────────────────────────┐"
+Write-Host "  │                                                              │"
+Write-Host "  │   $DragonGold✨ Super Terminal $version Installed Successfully!         $BabyBlueBold│"
+Write-Host "  │                                                              │"
+Write-Host "  │   $BabyBlueBold🚀 Launch from: Start Menu or Desktop Shortcut             │"
+Write-Host "  │   $DragonFlame🐉 Powered by Flying Dragon OS Engine                     │"
+Write-Host "  │                                                              │"
+Write-Host "  └──────────────────────────────────────────────────────────────┘$Reset"
 Write-Host ""

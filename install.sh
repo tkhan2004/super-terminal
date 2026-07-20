@@ -1,12 +1,13 @@
 #!/bin/bash
 set -e
 
-# ANSI Color Codes
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-YELLOW='\033[1;33m'
-GREEN='\033[0;32m'
-RED='\033[0;31m'
+# ANSI TrueColor (24-bit) Tokens (Baby Blue & Flying Dragon Palette)
+BABY_BLUE='\033[38;2;137;207;240m'
+BOLD_BABY_BLUE='\033[1;38;2;137;207;240m'
+DRAGON_GOLD='\033[1;38;2;255;215;0m'
+DRAGON_FLAME='\033[1;38;2;255;99;71m'
+GREEN='\033[1;32m'
+RED='\033[1;31m'
 GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
@@ -14,19 +15,25 @@ BOLD='\033[1m'
 # Clear terminal screen
 clear
 
-echo -e "${CYAN}================================================================"
-echo -e "${CYAN}  ____  _   _ ____  _____ ____    _____ _____ ____  __  __"
-echo -e "${CYAN} / ___|| | | |  _ \| ____|  _ \  |_   _| ____|  _ \|  \/  |"
-echo -e "${MAGENTA} \___ \| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\/| |"
-echo -e "${MAGENTA}  ___) | |_| |  __/| |___|  _ <    | | | |___|  _ <| |  | |"
-echo -e "${CYAN} |____/ \___/|_|   |_____|_| \_\   |_| |_____|_| \_\_|  |_|"
+echo -e "${BABY_BLUE}================================================================"
+echo -e "${DRAGON_FLAME}             / \\  __/\\  / \\"
+echo -e "${DRAGON_FLAME}            /   \\/    \\/   \\          ${DRAGON_GOLD}🐉 FLYING DRAGON"
+echo -e "${BOLD_BABY_BLUE}          /  (  ${DRAGON_FLAME}o   o${BOLD_BABY_BLUE}  )   \\        ${DRAGON_GOLD}~~~~~~~~~~~~~~~"
+echo -e "${BOLD_BABY_BLUE}         (   /\\  ___  /\\    )     ${BOLD_BABY_BLUE}Super Terminal OS"
+echo -e "${BABY_BLUE}            \\ /  \\/   \\/  \\  /"
+echo -e "${BABY_BLUE}             '             '"
+echo -e "${BOLD_BABY_BLUE}  ____  _   _ ____  _____ ____    _____ _____ ____  __  __"
+echo -e "${BOLD_BABY_BLUE} / ___|| | | |  _ \\| ____|  _ \\  |_   _| ____|  _ \\|  \\/  |"
+echo -e "${BOLD_BABY_BLUE} \\___ \\| | | | |_) |  _| | |_) |   | | |  _| | |_) | |\\/| |"
+echo -e "${BOLD_BABY_BLUE}  ___) | |_| |  __/| |___|  _ <    | | | |___|  _ <| |  | |"
+echo -e "${BOLD_BABY_BLUE} |____/ \\___/|_|   |_____|_| \\_\\   |_| |_____|_| \\_\\_|  |_|"
 echo -e "                                                             "
-echo -e "         ${YELLOW}${BOLD}AI AGENT DESKTOP CONTROL CENTER (macOS)${NC}"
-echo -e "${CYAN}================================================ raw${NC}\n"
+echo -e "         ${DRAGON_GOLD}${BOLD}✨ AI AGENT DESKTOP CONTROL CENTER (macOS) ✨${NC}"
+echo -e "${BABY_BLUE}================================================================${NC}\n"
 
 # Helper step printer
 step_run() {
-    echo -e "  ${CYAN}[?]${NC} $1"
+    echo -e "  ${BABY_BLUE}[?]${NC} $1"
 }
 
 step_ok() {
@@ -67,7 +74,7 @@ if [ -z "$VERSION" ]; then
     step_fail "Failed to query GitHub releases. Please check your internet connection."
     exit 1
 fi
-step_ok "Found latest version: ${BOLD}$VERSION${NC}"
+step_ok "Found latest version: ${BOLD_BABY_BLUE}$VERSION${NC}"
 
 # 4. Find matching DMG URL
 step_run "Locating macOS installer package..."
@@ -91,8 +98,8 @@ TEMP_DMG="/tmp/$DMG_NAME"
 MOUNT_POINT="/tmp/super-terminal-mount"
 step_ok "Found package: $DMG_NAME"
 
-# 5. Download with Progress Bar
-echo -e "\n  ${YELLOW}[↓] Downloading package...${NC}"
+# 5. Stream Download with Flying Dragon Indicator
+echo -e "\n  ${DRAGON_GOLD}[🐲] Flying Dragon Downloading Stream...${NC}"
 curl -L --progress-bar -o "$TEMP_DMG" "$DOWNLOAD_URL"
 step_ok "Download complete and verified!"
 
@@ -118,12 +125,12 @@ rm -f "$TEMP_DMG"
 rm -rf "$MOUNT_POINT"
 step_ok "Cleanup complete"
 
-# Final Banner
-echo -e "\n  ${GREEN}┌──────────────────────────────────────────────────────────────┐${NC}"
-echo -e "  ${GREEN}│                                                              │${NC}"
-echo -e "  ${GREEN}│${NC}   ${YELLOW}${BOLD}✨ Super Terminal $VERSION Installed Successfully!${NC}         ${GREEN}│${NC}"
-echo -e "  ${GREEN}│                                                              │${NC}"
-echo -e "  ${GREEN}│${NC}   ${CYAN}🚀 Launch via: Spotlight (⌘ + Space) -> Super Terminal     ${GREEN}│${NC}"
-echo -e "  ${GREEN}│${NC}   ${GRAY}📁 Application: /Applications/Super Terminal.app        ${GREEN}│${NC}"
-echo -e "  ${GREEN}│                                                              │${NC}"
-echo -e "  ${GREEN}└──────────────────────────────────────────────────────────────┘${NC}\n"
+# Final Banner in Baby Blue
+echo -e "\n  ${BOLD_BABY_BLUE}┌──────────────────────────────────────────────────────────────┐${NC}"
+echo -e "  ${BOLD_BABY_BLUE}│                                                              │${NC}"
+echo -e "  ${BOLD_BABY_BLUE}│${NC}   ${DRAGON_GOLD}${BOLD}✨ Super Terminal $VERSION Installed Successfully!${NC}         ${BOLD_BABY_BLUE}│${NC}"
+echo -e "  ${BOLD_BABY_BLUE}│                                                              │${NC}"
+echo -e "  ${BOLD_BABY_BLUE}│${NC}   ${BOLD_BABY_BLUE}🚀 Launch via: Spotlight (⌘ + Space) -> Super Terminal     ${BOLD_BABY_BLUE}│${NC}"
+echo -e "  ${BOLD_BABY_BLUE}│${NC}   ${DRAGON_FLAME}🐉 Powered by Flying Dragon OS Engine                     ${BOLD_BABY_BLUE}│${NC}"
+echo -e "  ${BOLD_BABY_BLUE}│                                                              │${NC}"
+echo -e "  ${BOLD_BABY_BLUE}└──────────────────────────────────────────────────────────────┘${NC}\n"
