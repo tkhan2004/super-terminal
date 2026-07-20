@@ -46,7 +46,7 @@ fi
 if [ -z "$DOWNLOAD_URL" ]; then
     echo "❌ Could not find a DMG installer in the latest release assets."
     exit 1
-}
+fi
 
 DMG_NAME=$(basename "$DOWNLOAD_URL")
 TEMP_DMG="/tmp/$DMG_NAME"
